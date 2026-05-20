@@ -1,6 +1,6 @@
-defmodule StieBackend do
+defmodule SiteBackend do
   @moduledoc """
-  Documentation for `StieBackend`.
+  Documentation for `SiteBackend`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule StieBackend do
 
   ## Examples
 
-      iex> StieBackend.hello()
+      iex> SiteBackend.hello()
       :world
 
   """
