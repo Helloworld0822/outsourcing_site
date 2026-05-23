@@ -21,7 +21,7 @@ window.addEventListener('error', (ev) => {
   d.innerText = `Error: ${ev.message} at ${ev.filename}:${ev.lineno}:${ev.colno}`
   document.body.prepend(d)
 })
-window.addEventListener('unhandledrejection', (ev:any) => {
+window.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
   const existing = document.getElementById('global-error-overlay')
   if (existing) existing.remove()
   const d = document.createElement('div')
