@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import {
   ThemeProvider,
   BaseStyles,
@@ -7,8 +7,6 @@ import {
   Button,
   TextInput,
   Avatar,
-  Box,
-  Badge,
 } from '@primer/react'
 import './App.css'
 import LoginPanel from './LoginPanel'
@@ -51,72 +49,60 @@ const mockProjects: Project[] = [
 
 function ProjectCard({ p }: { p: Project }) {
   return (
-    <Box
-      borderWidth={1}
-      borderStyle="solid"
-      borderColor="border.muted"
-      borderRadius={6}
-      padding={3}
-      backgroundColor="canvas.subtle"
-      mb={3}
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: 12,
+        backgroundColor: 'var(--code-bg)',
+        marginBottom: 12,
+      }}
     >
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Heading as="h3" sx={{ fontSize: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <Heading as="h3" style={{ fontSize: 20, margin: 0 }}>
             {p.title}
           </Heading>
-          <Text color="fg.muted" sx={{ mt: 1 }}>
+          <Text color="fg.muted" style={{ marginTop: 8, display: 'inline-block' }}>
             {p.description}
           </Text>
-          <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {p.skills.map((s) => (
-              <Badge key={s} variant="secondary">
+              <span
+                key={s}
+                style={{
+                  display: 'inline-block',
+                  fontSize: 12,
+                  border: '1px solid var(--border)',
+                  borderRadius: 999,
+                  padding: '2px 8px',
+                }}
+              >
                 {s}
-              </Badge>
+              </span>
             ))}
-          </Box>
-        </Box>
-        <Box textAlign="right">
-          <Text sx={{ fontWeight: 'bold' }}>{p.budget}</Text>
-          <Box sx={{ mt: 2 }}>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <Text style={{ fontWeight: 'bold' }}>{p.budget}</Text>
+          <div style={{ marginTop: 8 }}>
             <Button variant="primary">제안하기</Button>
-          </Box>
-        </Box>
-      </Box>
-      <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Avatar alt={p.client.name} />
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Avatar alt={p.client.name} src={p.client.avatar ?? '/favicon.svg'} />
         <Text>{p.client.name}</Text>
-      </Box>
-    </Box>
+      </div>
+    </div>
   )
 }
 
-class ErrorBoundary extends React.Component<{children:any}, {error:any}> {
-  constructor(props:any){
-    super(props)
-    this.state = { error: null }
-  }
-  static getDerivedStateFromError(error:any) {
-    return { error }
-  }
-  render(){
-    if(this.state.error){
-      return (
-        <div style={{padding:20}}>
-          <h2>앱에서 오류가 발생했습니다</h2>
-          <pre>{String(this.state.error)}</pre>
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
-
-export default function App(): JSX.Element {
+export default function App() {
   const [query, setQuery] = useState('')
   const [skillFilter, setSkillFilter] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'))
+  const [isLoggedIn, setIsLoggedIn] = useState(Boolean(localStorage.getItem('token')))
 
   const skills = useMemo(() => {
     const s = new Set<string>()
@@ -142,7 +128,7 @@ export default function App(): JSX.Element {
               <Text color="fg.muted">프리랜서와 클라이언트를 연결하는 외주 중개 플랫폼 (Primer 스타일)</Text>
             </div>
             <div>
-              {!localStorage.getItem('token') ? (
+              {!isLoggedIn ? (
                 <Button style={{marginRight: 8}} variant="invisible" onClick={() => setShowLogin(true)}>로그인</Button>
               ) : (
                 <Button style={{marginRight: 8}} variant="invisible" onClick={() => { localStorage.removeItem('token'); setIsLoggedIn(false); }}>로그아웃</Button>
@@ -150,6 +136,17 @@ export default function App(): JSX.Element {
               <Button variant="primary">회원가입</Button>
             </div>
           </div>
+
+          {showLogin && !isLoggedIn && (
+            <div style={{ marginBottom: 16 }}>
+              <LoginPanel
+                onLogin={() => {
+                  setIsLoggedIn(true)
+                  setShowLogin(false)
+                }}
+              />
+            </div>
+          )}
 
           <div style={{display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16}}>
             <div>
@@ -160,7 +157,7 @@ export default function App(): JSX.Element {
                   <TextInput
                     placeholder="검색어를 입력하세요 (예: React)"
                     value={query}
-                    onChange={(e: any) => setQuery(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                   />
                 </div>
 
@@ -195,7 +192,7 @@ export default function App(): JSX.Element {
 
                 <div style={{marginTop: 12, display: 'flex', gap: 8}}>
                   <Button variant="primary">프로젝트 등록</Button>
-                  <Button variant="secondary">프리랜서 보기</Button>
+                  <Button variant="default">프리랜서 보기</Button>
                 </div>
               </div>
 

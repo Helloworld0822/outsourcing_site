@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { TextInput, Button, Heading, Text } from '@primer/react'
 
 export default function LoginPanel({ onLogin }: { onLogin: (token: string) => void }) {
@@ -11,7 +11,7 @@ export default function LoginPanel({ onLogin }: { onLogin: (token: string) => vo
     setLoading(true)
     setError(null)
     try {
-      const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:4000'
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
       const res = await fetch(`${API_BASE}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,8 +25,8 @@ export default function LoginPanel({ onLogin }: { onLogin: (token: string) => vo
         localStorage.setItem('token', body.token)
         onLogin(body.token)
       }
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '로그인 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -37,11 +37,11 @@ export default function LoginPanel({ onLogin }: { onLogin: (token: string) => vo
       <Heading as="h3">로그인</Heading>
       <div style={{marginTop: 8}}>
         <label>이메일</label>
-        <TextInput value={email} onChange={(e: any) => setEmail(e.target.value)} />
+        <TextInput value={email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
       </div>
       <div style={{marginTop: 8}}>
         <label>비밀번호</label>
-        <TextInput type="password" value={password} onChange={(e: any) => setPassword(e.target.value)} />
+        <TextInput type="password" value={password} onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
       </div>
       {error && (
         <Text color="danger.fg" style={{marginTop: 8}}>{error}</Text>
