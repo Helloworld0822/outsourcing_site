@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
+const storedColorMode = localStorage.getItem('colorMode')
+document.documentElement.setAttribute('data-color-mode', storedColorMode === 'night' ? 'night' : 'day')
+
 // Global error overlay to surface runtime errors in the page
 window.addEventListener('error', (ev) => {
   const existing = document.getElementById('global-error-overlay')

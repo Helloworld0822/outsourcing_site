@@ -129,6 +129,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('colorMode', colorMode)
+    document.documentElement.setAttribute('data-color-mode', colorMode)
   }, [colorMode])
 
   const skills = useMemo(() => {
