@@ -5,7 +5,8 @@ import App from './App.tsx'
 
 try {
   const storedColorMode = localStorage.getItem('colorMode')
-  document.documentElement.setAttribute('data-color-mode', storedColorMode === 'night' ? 'night' : 'day')
+  const colorMode = storedColorMode === 'night' || storedColorMode === 'day' ? storedColorMode : 'day'
+  document.documentElement.setAttribute('data-color-mode', colorMode)
 } catch {
   document.documentElement.setAttribute('data-color-mode', 'day')
 }
