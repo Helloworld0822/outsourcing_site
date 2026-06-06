@@ -10,6 +10,7 @@ import {
 } from '@primer/react'
 import './App.css'
 import LoginPanel from './LoginPanel'
+import SignUpPanel from './SignUpPanel'
 import heroImage from './assets/hero.png'
 
 type Project = {
@@ -121,14 +122,21 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [skillFilter, setSkillFilter] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
+  const [showSignup, setShowSignup] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(Boolean(localStorage.getItem('token')))
   const [colorMode, setColorMode] = useState<'day' | 'night'>(() => {
     const stored = localStorage.getItem('colorMode')
-    return stored === 'night' ? 'night' : 'day'
+    if (stored === 'night' || stored === 'day') {
+      return stored
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day'
   })
 
   useEffect(() => {
     localStorage.setItem('colorMode', colorMode)
+    document.documentElement.dataset.theme = colorMode
+    document.documentElement.style.colorScheme = colorMode === 'night' ? 'dark' : 'light'
   }, [colorMode])
 
   const skills = useMemo(() => {
@@ -148,8 +156,8 @@ export default function App() {
   return (
     <ThemeProvider colorMode={colorMode}>
       <BaseStyles>
-        <div style={{padding: 16}}>
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16}}>
+        <div style={{ padding: 16 }}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16}}>
             <div>
               <Heading as="h1">Outsourcing Hub</Heading>
               <Text color="fg.muted">프리랜서와 클라이언트를 연결하는 외주 중개 플랫폼 (Primer 스타일)</Text>
@@ -157,16 +165,20 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Button
                 variant="invisible"
+                aria-pressed={colorMode === 'night'}
                 onClick={() => setColorMode((prev) => (prev === 'day' ? 'night' : 'day'))}
               >
                 {colorMode === 'day' ? '다크 모드' : '화이트 모드'}
               </Button>
               {!isLoggedIn ? (
-                <Button variant="invisible" onClick={() => setShowLogin(true)}>로그인</Button>
+                <Button variant="invisible" onClick={() => setShowLogin((s) => !s)}>{showLogin ? '로그인 닫기' : '로그인'}</Button>
               ) : (
                 <Button variant="invisible" onClick={() => { localStorage.removeItem('token'); setIsLoggedIn(false); }}>로그아웃</Button>
               )}
-              <Button variant="primary">회원가입</Button>
+              <Button
+                variant="primary"
+                onClick={() => setShowSignup(true)}
+              >회원가입</Button>
             </div>
           </div>
 
@@ -179,6 +191,16 @@ export default function App() {
                 }}
               />
             </div>
+          )}
+
+          {showSignup && !isLoggedIn && (
+            <SignUpPanel
+              onSignUp={() => {
+                setIsLoggedIn(true)
+                setShowSignup(false)
+              }}
+              onClose={() => setShowSignup(false)}
+            />
           )}
 
           <div style={{display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16}}>

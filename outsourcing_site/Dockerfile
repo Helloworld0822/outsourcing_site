@@ -1,7 +1,8 @@
 # Multi-stage build: build the Vite React app, then serve with nginx
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
+# Ensure index.html is copied so Vite can find the entry
+COPY package.json package-lock.json tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts index.html ./
 COPY public ./public
 COPY src ./src
 RUN npm ci

@@ -33,7 +33,7 @@ export default function LoginPanel({ onLogin }: { onLogin: (token: string) => vo
   }
 
   return (
-    <div style={{border: '1px solid var(--border)', borderRadius: 8, padding: 12, width: 320}}>
+    <div style={{border: '1px solid var(--border)', borderRadius: 12, padding: 16, width: 320, background: 'var(--surface)', boxShadow: 'var(--shadow)'}}>
       <Heading as="h3">로그인</Heading>
       <div style={{marginTop: 8}}>
         <label>이메일</label>
