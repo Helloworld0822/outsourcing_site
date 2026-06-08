@@ -11,6 +11,9 @@ defmodule SiteBackend.User do
     field :account_type, Ecto.Enum, values: [:client, :freelancer]
     field :failed_login_count, :integer, default: 0
     field :locked_until, :naive_datetime
+    field :email_verified, :boolean, default: false
+    field :email_verification_token, :string
+    field :email_verification_sent_at, :naive_datetime
     has_many :logins, SiteBackend.Login
 
     timestamps()
@@ -72,6 +75,31 @@ defmodule SiteBackend.User do
   def locked?(%{locked_until: nil}), do: false
   def locked?(%{locked_until: locked_until}) do
     NaiveDateTime.compare(locked_until, NaiveDateTime.utc_now()) == :gt
+  end
+
+  def generate_verification_token do
+    :crypto.strong_rand_bytes(32)
+    |> Base.url_encode64(padding: false)
+  end
+
+  def set_verification_token(user) do
+    token = generate_verification_token()
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    user
+    |> change(%{
+      email_verification_token: token,
+      email_verification_sent_at: now
+    })
+  end
+
+  def verify_email(user) do
+    user
+    |> change(%{
+      email_verified: true,
+      email_verification_token: nil,
+      email_verification_sent_at: nil
+    })
   end
 
   defp put_pass_hash(changeset) do

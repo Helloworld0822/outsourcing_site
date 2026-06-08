@@ -17,6 +17,7 @@ import FreelancerServiceList from './FreelancerServiceList'
 import ServiceOrderDialog from './ServiceOrderDialog'
 import NotificationBell from './NotificationBell'
 import ChatWidget from './ChatWidget'
+import VerifyEmail from './VerifyEmail'
 import heroImage from './assets/hero.png'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
@@ -209,6 +210,7 @@ export default function App() {
   const [skillFilter, setSkillFilter] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
   const [showSignup, setShowSignup] = useState(false)
+  const [verifyEmailToken, setVerifyEmailToken] = useState<string | null>(null)
   const [view, setView] = useState<'projects' | 'services'>('projects')
   const [servicesRefreshKey, setServicesRefreshKey] = useState(0)
   const [orderTarget, setOrderTarget] = useState<FreelancerService | null>(null)
@@ -232,6 +234,15 @@ export default function App() {
 
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day'
   })
+
+  // URL에서 이메일 인증 토큰 확인
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token && window.location.pathname === '/verify-email') {
+      setVerifyEmailToken(token)
+    }
+  }, [])
   const [publicProjects, setPublicProjects] = useState<Project[]>([])
   const [clientProjects, setClientProjects] = useState<Project[]>([])
   const [freelancerApplications, setFreelancerApplications] = useState<Application[]>([])
@@ -511,7 +522,6 @@ export default function App() {
 
           {showSignup && !isLoggedIn && (
             <SignUpPanel
-              onSignUp={handleSession}
               onClose={() => setShowSignup(false)}
             />
           )}
@@ -770,6 +780,18 @@ export default function App() {
               token={session.token}
               userId={session.user.id}
               userRole={session.user.account_type}
+            />
+          )}
+
+          {verifyEmailToken && (
+            <VerifyEmail
+              token={verifyEmailToken}
+              onVerified={() => {
+                setVerifyEmailToken(null)
+                window.history.replaceState({}, '', window.location.pathname)
+                setShowLogin(true)
+                setStatusMessage('이메일 인증이 완료되었습니다. 로그인해주세요.')
+              }}
             />
           )}
         </div>

@@ -45,8 +45,9 @@ defmodule SiteBackend.Router do
   defp translate_exception(_), do: "서버 내부 오류가 발생했습니다."
 
   import Ecto.Query
+  require Logger
 
-  alias SiteBackend.{ChatMessage, ChatRoom, ErrorMessages, FreelancerService, Login, Notification, Project, ProjectApplication, Repo, SecurityAudit, ServiceOrder, User}
+  alias SiteBackend.{ChatMessage, ChatRoom, Email, ErrorMessages, FreelancerService, Login, Notification, Project, ProjectApplication, Repo, SecurityAudit, ServiceOrder, User}
 
   plug :match
   plug Plug.Parsers, parsers: [:json], json_decoder: Jason, pass: ["*/*"]
@@ -118,30 +119,35 @@ defmodule SiteBackend.Router do
               )
             else
               if Bcrypt.verify_pass(password, user.password_hash) do
-                user
-                |> User.reset_failed_logins()
-                |> Repo.update()
+                # 이메일 인증 확인
+                if not user.email_verified do
+                  json_error(conn, 403, "이메일 인증이 필요합니다. 받은 편지함을 확인해주세요.")
+                else
+                  user
+                  |> User.reset_failed_logins()
+                  |> Repo.update()
 
-                SiteBackend.RateLimiter.reset(key)
+                  SiteBackend.RateLimiter.reset(key)
 
-                {:ok, token, _claims} = SiteBackend.Auth.generate_jwt(%{user_id: user.id})
+                  {:ok, token, _claims} = SiteBackend.Auth.generate_jwt(%{user_id: user.id})
 
-                login_changeset =
-                  Login.changeset(%Login{}, %{
-                    user_id: user.id,
-                    ip_address: ip
-                  })
+                  login_changeset =
+                    Login.changeset(%Login{}, %{
+                      user_id: user.id,
+                      ip_address: ip
+                    })
 
-                case Repo.insert(login_changeset) do
-                  {:ok, _login} ->
-                    SecurityAudit.log_successful_login(user.id, email, ip)
+                  case Repo.insert(login_changeset) do
+                    {:ok, _login} ->
+                      SecurityAudit.log_successful_login(user.id, email, ip)
 
-                    conn
-                    |> put_resp_content_type("application/json")
-                    |> send_resp(200, Jason.encode!(%{token: token, user: user_to_map(user)}))
+                      conn
+                      |> put_resp_content_type("application/json")
+                      |> send_resp(200, Jason.encode!(%{token: token, user: user_to_map(user)}))
 
-                  {:error, changeset} ->
-                    json_error(conn, 500, ErrorMessages.translate_changeset_errors(changeset))
+                    {:error, changeset} ->
+                      json_error(conn, 500, ErrorMessages.translate_changeset_errors(changeset))
+                  end
                 end
               else
                 SecurityAudit.log_failed_login(email, ip)
@@ -752,6 +758,79 @@ defmodule SiteBackend.Router do
     end
   end
 
+  post "/verify-email" do
+    case conn.body_params do
+      %{"email" => email} when is_binary(email) ->
+        case Repo.get_by(User, email: email) do
+          nil ->
+            # 보안: 이메일 존재 여부 노출 방지
+            send_json(conn, %{message: "인증 이메일이 발송되었습니다."})
+
+          user ->
+            if user.email_verified do
+              send_json(conn, %{message: "이미 인증된 이메일입니다."})
+            else
+              # Rate limit 확인
+              key = "verify:#{request_ip(conn)}"
+              case SiteBackend.RateLimiter.hit(key, 3, 3600) do
+                {:error, :rate_limited, retry_after} ->
+                  conn
+                  |> put_resp_header("retry-after", to_string(retry_after))
+                  |> json_error(429, "인증 메일 발송이 너무 많습니다. #{retry_after}초 후에 다시 시도해주세요.")
+
+                {:ok, _} ->
+                  user
+                  |> User.set_verification_token()
+                  |> Repo.update()
+                  |> case do
+                    {:ok, verified_user} ->
+                      Email.verification_email(user.email, verified_user.email_verification_token)
+                      |> SiteBackend.Mailer.deliver()
+                      |> case do
+                        {:ok, _} ->
+                          Logger.info("Verification email resent to #{user.email}")
+                        {:error, reason} ->
+                          Logger.error("Failed to resend verification email to #{user.email}: #{inspect(reason)}")
+                      end
+
+                      send_json(conn, %{message: "인증 이메일이 발송되었습니다."})
+
+                    {:error, _} ->
+                      json_error(conn, 500, "인증 메일 발송에 실패했습니다.")
+                  end
+              end
+            end
+        end
+    end
+  end
+
+  get "/verify-email/:token" do
+    case conn.path_params["token"] do
+      token when is_binary(token) and byte_size(token) > 0 ->
+        case Repo.get_by(User, email_verification_token: token) do
+          nil ->
+            json_error(conn, 400, "유효하지 않거나 만료된 인증 링크입니다.")
+
+          user ->
+            if user.email_verified do
+              send_json(conn, %{message: "이미 인증된 이메일입니다."})
+            else
+              user
+              |> User.verify_email()
+              |> Repo.update()
+              |> case do
+                {:ok, _} ->
+                  SecurityAudit.log_email_verification(user.id, user.email)
+                  send_json(conn, %{message: "이메일 인증이 완료되었습니다."})
+
+                {:error, _} ->
+                  json_error(conn, 500, "이메일 인증 처리 중 오류가 발생했습니다.")
+              end
+            end
+        end
+    end
+  end
+
   match _ do
     send_resp(conn, 404, "not found")
   end
@@ -766,14 +845,32 @@ defmodule SiteBackend.Router do
 
     case Repo.insert(changeset) do
       {:ok, user} ->
-        {:ok, token, _claims} = SiteBackend.Auth.generate_jwt(%{user_id: user.id})
+        # 이메일 인증 토큰 생성 및 발송
+        user
+        |> User.set_verification_token()
+        |> Repo.update()
+        |> case do
+          {:ok, verified_user} ->
+            Email.verification_email(user.email, verified_user.email_verification_token)
+            |> SiteBackend.Mailer.deliver()
+            |> case do
+              {:ok, _} ->
+                Logger.info("Verification email sent to #{user.email}")
+              {:error, reason} ->
+                Logger.error("Failed to send verification email to #{user.email}: #{inspect(reason)}")
+            end
+          {:error, _} -> :ok
+        end
+
         SecurityAudit.log_signup(user.id, user.email, request_ip(conn))
 
+        # 이메일 인증 전이므로 토큰 없이 응답
         send_json(
           conn,
           %{
-            token: token,
-            user: user_to_map(user)
+            message: "회원가입이 완료되었습니다. 이메일 인증 후 로그인해주세요.",
+            email: user.email,
+            email_verified: false
           },
           201
         )

@@ -46,4 +46,18 @@ defmodule SiteBackend.SecurityAudit do
   def log_account_lockout(user_id, email, ip) do
     log_event("account_locked", %{user_id: user_id, email: email, ip: ip})
   end
+
+  @doc """
+  Log an email verification.
+  """
+  def log_email_verification(user_id, email) do
+    log_event("email_verified", %{user_id: user_id, email: email})
+  end
+
+  @doc """
+  Log an email verification request.
+  """
+  def log_email_verification_request(email, ip) do
+    log_event("email_verification_requested", %{email: email, ip: ip})
+  end
 end

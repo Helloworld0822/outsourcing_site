@@ -6,7 +6,7 @@ defmodule SiteBackend.Application do
     port = String.to_integer(System.get_env("PORT") || "4000")
     ws_port = String.to_integer(System.get_env("WS_PORT") || "4001")
 
-    for app <- [:telemetry, :jason, :plug, :plug_cowboy, :cowboy, :ranch, :ecto_sql, :postgrex, :bcrypt_elixir] do
+    for app <- [:telemetry, :jason, :plug, :plug_cowboy, :cowboy, :ranch, :ecto_sql, :postgrex, :bcrypt_elixir, :swoosh] do
       {:ok, _} = Application.ensure_all_started(app)
     end
 
