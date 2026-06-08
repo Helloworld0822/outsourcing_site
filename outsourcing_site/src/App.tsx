@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import {
   ThemeProvider,
   BaseStyles,
@@ -11,6 +11,11 @@ import {
 import './App.css'
 import LoginPanel from './LoginPanel'
 import SignUpPanel from './SignUpPanel'
+import AiRecommend from './AiRecommend'
+import FreelancerServiceForm, { type FreelancerService } from './FreelancerServiceForm'
+import FreelancerServiceList from './FreelancerServiceList'
+import ServiceOrderDialog from './ServiceOrderDialog'
+import NotificationBell from './NotificationBell'
 import heroImage from './assets/hero.png'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
@@ -36,6 +41,7 @@ type Application = {
   message: string
   status: string
   freelancer: SessionUser
+  project?: { id: string; title: string }
   inserted_at: string | null
   updated_at: string | null
 }
@@ -202,6 +208,9 @@ export default function App() {
   const [skillFilter, setSkillFilter] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
   const [showSignup, setShowSignup] = useState(false)
+  const [view, setView] = useState<'projects' | 'services'>('projects')
+  const [servicesRefreshKey, setServicesRefreshKey] = useState(0)
+  const [orderTarget, setOrderTarget] = useState<FreelancerService | null>(null)
   const [session, setSession] = useState<Session | null>(() => {
     const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
@@ -255,11 +264,93 @@ export default function App() {
     }
   }, [session])
 
-  useEffect(() => {
-    loadPublicProjects()
-  }, [])
+  const skills = useMemo(() => {
+    const s = new Set<string>()
+    publicProjects.forEach((p) => p.skills.forEach((k) => s.add(k)))
+    return Array.from(s)
+  }, [publicProjects])
+
+  const filteredProjects = useMemo(() => {
+    return publicProjects.filter((p) => {
+      const matchesQuery = query.trim() === '' || p.title.includes(query) || p.description.includes(query)
+      const matchesSkill = !skillFilter || p.skills.includes(skillFilter)
+      return matchesQuery && matchesSkill
+    })
+  }, [publicProjects, query, skillFilter])
+
+  const apiRequest = useCallback(
+    async <T,>(path: string, init: RequestInit = {}, auth = false): Promise<T> => {
+      const headers = new Headers(init.headers)
+      headers.set('Content-Type', 'application/json')
+
+      if (auth && session?.token) {
+        headers.set('Authorization', `Bearer ${session.token}`)
+      }
+
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers,
+      })
+
+      const body = await readJsonResponse<T>(res)
+      if (!res.ok) {
+        throw new Error(formatError((body as { error?: unknown } | null)?.error, '요청 실패'))
+      }
+
+      return (body ?? ({} as T)) as T
+    },
+    [session],
+  )
+
+  const loadPublicProjects = useCallback(async () => {
+    setLoadingPublic(true)
+    try {
+      const body = await apiRequest<{ data: Project[] }>('/api/projects')
+      setPublicProjects(body.data)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '프로젝트를 불러오지 못했습니다.')
+    } finally {
+      setLoadingPublic(false)
+    }
+  }, [apiRequest])
+
+  const loadClientProjects = useCallback(async () => {
+    setLoadingPrivate(true)
+    try {
+      const body = await apiRequest<{ data: Project[] }>('/api/client/projects', {}, true)
+      setClientProjects(body.data)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '내 프로젝트를 불러오지 못했습니다.')
+    } finally {
+      setLoadingPrivate(false)
+    }
+  }, [apiRequest])
+
+  const loadFreelancerApplications = useCallback(async () => {
+    setLoadingPrivate(true)
+    try {
+      const body = await apiRequest<{ data: Application[] }>('/api/freelancer/applications', {}, true)
+      setFreelancerApplications(body.data)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '지원 내역을 불러오지 못했습니다.')
+    } finally {
+      setLoadingPrivate(false)
+    }
+  }, [apiRequest])
 
   useEffect(() => {
+    // Initial fetch of the public project list. The state updates happen
+    // asynchronously inside `loadPublicProjects`, so this is safe.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadPublicProjects()
+  }, [loadPublicProjects])
+
+  useEffect(() => {
+    // Resetting role-scoped state when the session changes is the
+    // correct behaviour here: each role reads from a different endpoint,
+    // and we don't want the previous user's projects/applications to
+    // flash in after a logout/login cycle.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!session) {
       setClientProjects([])
       setFreelancerApplications([])
@@ -276,78 +367,8 @@ export default function App() {
       loadFreelancerApplications()
       setClientProjects([])
     }
-  }, [session?.token, session?.user.account_type])
-
-  const skills = useMemo(() => {
-    const s = new Set<string>()
-    publicProjects.forEach((p) => p.skills.forEach((k) => s.add(k)))
-    return Array.from(s)
-  }, [publicProjects])
-
-  const filteredProjects = useMemo(() => {
-    return publicProjects.filter((p) => {
-      const matchesQuery = query.trim() === '' || p.title.includes(query) || p.description.includes(query)
-      const matchesSkill = !skillFilter || p.skills.includes(skillFilter)
-      return matchesQuery && matchesSkill
-    })
-  }, [publicProjects, query, skillFilter])
-
-  async function apiRequest<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
-    const headers = new Headers(init.headers)
-    headers.set('Content-Type', 'application/json')
-
-    if (auth && session?.token) {
-      headers.set('Authorization', `Bearer ${session.token}`)
-    }
-
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers,
-    })
-
-    const body = await readJsonResponse<T>(res)
-    if (!res.ok) {
-      throw new Error(formatError((body as { error?: unknown } | null)?.error, '요청 실패'))
-    }
-
-    return (body ?? ({} as T)) as T
-  }
-
-  async function loadPublicProjects() {
-    setLoadingPublic(true)
-    try {
-      const body = await apiRequest<{ data: Project[] }>('/api/projects')
-      setPublicProjects(body.data)
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : '프로젝트를 불러오지 못했습니다.')
-    } finally {
-      setLoadingPublic(false)
-    }
-  }
-
-  async function loadClientProjects() {
-    setLoadingPrivate(true)
-    try {
-      const body = await apiRequest<{ data: Project[] }>('/api/client/projects', {}, true)
-      setClientProjects(body.data)
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : '내 프로젝트를 불러오지 못했습니다.')
-    } finally {
-      setLoadingPrivate(false)
-    }
-  }
-
-  async function loadFreelancerApplications() {
-    setLoadingPrivate(true)
-    try {
-      const body = await apiRequest<{ data: Application[] }>('/api/freelancer/applications', {}, true)
-      setFreelancerApplications(body.data)
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : '지원 내역을 불러오지 못했습니다.')
-    } finally {
-      setLoadingPrivate(false)
-    }
-  }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [session, loadClientProjects, loadFreelancerApplications])
 
   function handleSession(sessionValue: Session) {
     setSession(sessionValue)
@@ -427,6 +448,29 @@ export default function App() {
               <Text color="fg.muted">프리랜서와 클라이언트를 연결하는 외주 중개 플랫폼 (Primer 스타일)</Text>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {['projects', 'services'].map((v) => {
+                const active = view === v
+                const label = v === 'projects' ? '프로젝트' : '서비스'
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setView(v as 'projects' | 'services')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 6,
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      background: active ? 'var(--accent)' : 'transparent',
+                      color: active ? 'white' : 'inherit',
+                      cursor: 'pointer',
+                      fontWeight: active ? 'bold' : 'normal',
+                      fontSize: 13,
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+              <div style={{ width: 8 }} />
               <Button
                 variant="invisible"
                 aria-pressed={colorMode === 'night'}
@@ -434,6 +478,9 @@ export default function App() {
               >
                 {colorMode === 'day' ? '다크 모드' : '화이트 모드'}
               </Button>
+              {session && (
+                <NotificationBell token={session.token} />
+              )}
               {!isLoggedIn ? (
                 <Button variant="invisible" onClick={() => setShowLogin((s) => !s)}>
                   {showLogin ? '로그인 닫기' : '로그인'}
@@ -495,6 +542,8 @@ export default function App() {
             </div>
 
             <div>
+              {view === 'projects' ? (
+                <>
               <div style={{ borderRadius: 8, padding: 16, background: 'var(--code-bg)', marginBottom: 16 }}>
                 <Heading as="h2">프로젝트 찾기</Heading>
                 <Text color="fg.muted" style={{ marginTop: 8 }}>
@@ -574,32 +623,68 @@ export default function App() {
               )}
 
               {role === 'freelancer' && (
-                <div style={{ marginBottom: 16 }}>
-                  <Heading as="h3">내 지원 내역</Heading>
-                  {loadingPrivate ? (
-                    <Text>불러오는 중...</Text>
-                  ) : freelancerApplications.length === 0 ? (
-                    <Text>아직 지원한 프로젝트가 없습니다.</Text>
-                  ) : (
-                    freelancerApplications.map((application) => (
-                      <div
-                        key={application.id}
-                        style={{
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          padding: 12,
-                          marginTop: 8,
-                          background: 'var(--bg)',
-                        }}
-                      >
-                        <Text style={{ fontWeight: 'bold' }}>{application.message}</Text>
-                        <Text color="fg.muted" style={{ display: 'block', marginTop: 4 }}>
-                          상태: {application.status}
-                        </Text>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <>
+                  <AiRecommend token={session?.token ?? null} />
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Heading as="h3">내 수주 현황</Heading>
+                    {loadingPrivate ? (
+                      <Text>불러오는 중...</Text>
+                    ) : freelancerApplications.length === 0 ? (
+                      <Text color="fg.muted">아직 지원한 프로젝트가 없습니다.</Text>
+                    ) : (
+                      freelancerApplications.map((application) => {
+                        const statusLabel: Record<string, string> = {
+                          pending: '검토 중',
+                          accepted: '수주 확정',
+                          rejected: '미선정',
+                        }
+                        const statusColor: Record<string, string> = {
+                          pending: '#f59e0b',
+                          accepted: '#10b981',
+                          rejected: '#ef4444',
+                        }
+                        const st = application.status
+                        return (
+                          <div
+                            key={application.id}
+                            style={{
+                              border: '1px solid var(--border)',
+                              borderRadius: 8,
+                              padding: 12,
+                              marginTop: 8,
+                              background: 'var(--bg)',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                              <Text style={{ fontWeight: 'bold', fontSize: 15 }}>
+                                {application.project?.title ?? '프로젝트'}
+                              </Text>
+                              <span style={{
+                                fontSize: 12,
+                                padding: '2px 8px',
+                                borderRadius: 999,
+                                border: `1px solid ${statusColor[st] ?? '#888'}`,
+                                color: statusColor[st] ?? '#888',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {statusLabel[st] ?? st}
+                              </span>
+                            </div>
+                            <Text color="fg.muted" style={{ display: 'block', marginTop: 6, fontSize: 14 }}>
+                              {application.message}
+                            </Text>
+                            {application.inserted_at && (
+                              <Text color="fg.muted" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+                                지원일: {new Date(application.inserted_at).toLocaleDateString('ko-KR')}
+                              </Text>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </>
               )}
 
               <div>
@@ -627,13 +712,52 @@ export default function App() {
                   ))
                 )}
               </div>
+                </>
+              ) : (
+                <>
+                  {role === 'freelancer' && session && (
+                    <FreelancerServiceForm
+                      token={session.token}
+                      onCreated={() => {
+                        setServicesRefreshKey((k) => k + 1)
+                        setStatusMessage('서비스가 등록되었습니다.')
+                      }}
+                    />
+                  )}
+                  <FreelancerServiceList
+                    token={session?.token ?? null}
+                    refreshKey={servicesRefreshKey}
+                    onOrder={(svc) => {
+                      if (!session) {
+                        setShowLogin(true)
+                        setStatusMessage('주문하려면 로그인이 필요합니다.')
+                        return
+                      }
+                      if (role !== 'client') {
+                        setStatusMessage('서비스 주문은 클라이언트 계정만 가능합니다.')
+                        return
+                      }
+                      setOrderTarget(svc)
+                    }}
+                  />
+                </>
+              )}
+
+              {orderTarget && session && (
+                <ServiceOrderDialog
+                  service={orderTarget}
+                  token={session.token}
+                  onClose={() => setOrderTarget(null)}
+                  onOrdered={() => setStatusMessage('주문이 접수되었습니다.')}
+                />
+              )}
             </div>
           </div>
 
           <footer style={{ marginTop: 32, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text color="fg.muted">© {new Date().getFullYear()} Outsourcing Hub</Text>
-              <div>
+              <div style={{ display: 'flex', gap: 4 }}>
                 <Button variant="invisible">회사정보</Button>
                 <Button variant="invisible">약관</Button>
               </div>

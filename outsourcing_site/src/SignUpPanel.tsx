@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { TextInput, Button, Heading, Text, Select } from '@primer/react'
+import { EyeIcon, EyeClosedIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
 
@@ -16,6 +17,8 @@ export default function SignUpPanel({ onSignUp, onClose }: { onSignUp: (session:
   const [confirm, setConfirm] = useState('')
   const [name, setName] = useState('')
   const [accountType, setAccountType] = useState<'client' | 'freelancer'>('client')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -90,11 +93,35 @@ export default function SignUpPanel({ onSignUp, onClose }: { onSignUp: (session:
 
           <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
             <label style={{fontSize: 14}}>비밀번호</label>
-            <TextInput type="password" placeholder="비밀번호를 입력해주세요" value={password} onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
+            <TextInput
+              type={showPassword ? 'text' : 'password'}
+              placeholder="비밀번호를 입력해주세요"
+              value={password}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              trailingAction={
+                <TextInput.Action
+                  onClick={() => setShowPassword(v => !v)}
+                  icon={showPassword ? EyeClosedIcon : EyeIcon}
+                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                />
+              }
+            />
           </div>
           <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
             <label style={{fontSize: 14}}>비밀번호 확인</label>
-            <TextInput type="password" placeholder="비밀번호를 다시 입력해주세요" value={confirm} onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)} />
+            <TextInput
+              type={showConfirm ? 'text' : 'password'}
+              placeholder="비밀번호를 다시 입력해주세요"
+              value={confirm}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)}
+              trailingAction={
+                <TextInput.Action
+                  onClick={() => setShowConfirm(v => !v)}
+                  icon={showConfirm ? EyeClosedIcon : EyeIcon}
+                  aria-label={showConfirm ? '비밀번호 숨기기' : '비밀번호 보기'}
+                />
+              }
+            />
           </div>
         </div>
 

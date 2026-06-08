@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { TextInput, Button, Heading, Text } from '@primer/react'
+import { EyeIcon, EyeClosedIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
 
@@ -13,6 +14,7 @@ type SessionUser = {
 export default function LoginPanel({ onLogin }: { onLogin: (session: { token: string; user: SessionUser }) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -53,7 +55,19 @@ export default function LoginPanel({ onLogin }: { onLogin: (session: { token: st
       </div>
       <div style={{marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6}}>
         <label>비밀번호</label>
-        <TextInput type="password" placeholder="비밀번호를 입력해주세요" value={password} onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
+        <TextInput
+          type={showPassword ? 'text' : 'password'}
+          placeholder="비밀번호를 입력해주세요"
+          value={password}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+          trailingAction={
+            <TextInput.Action
+              onClick={() => setShowPassword(v => !v)}
+              icon={showPassword ? EyeClosedIcon : EyeIcon}
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            />
+          }
+        />
       </div>
       {error && (
         <Text color="danger.fg" style={{marginTop: 8}}>{error}</Text>

@@ -46,7 +46,7 @@ html[data-theme='night'] {
 }
 
 html[data-theme='night'] #root,
-html[data-theme='night'] #root * {
+html[data-theme='night'] #root *:not(button):not(button *):not(input):not(select):not(textarea) {
   color: var(--text-strong) !important;
 }
 
@@ -58,9 +58,21 @@ html[data-theme='night'] select {
   border-color: var(--border) !important;
 }
 
+/* Primer Select/TextInput: the visible border lives on the BaseWrapper */
+html[data-theme='night'] .prc-components-TextInputBaseWrapper-wY-n0 {
+  border-color: var(--border) !important;
+  background-color: var(--surface-strong) !important;
+  color: var(--text-strong) !important;
+}
+
 html[data-theme='night'] input::placeholder,
 html[data-theme='night'] textarea::placeholder {
   color: var(--text-muted) !important;
+}
+
+/* Invisible-variant buttons (mode toggle, login, etc.) */
+html[data-theme='night'] button:where([data-variant='invisible']) {
+  color: #f0f4ff !important;
 }
 
 body {
@@ -93,4 +105,28 @@ a {
 :focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Notification dropdown */
+.notification-dropdown {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.notification-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+html[data-theme='night'] .notification-dropdown {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
 }

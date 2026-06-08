@@ -29,7 +29,8 @@ defmodule SiteBackend.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.4"},
       {:joken, "~> 2.6"},
-      {:bcrypt_elixir, "~> 3.0"}
+      {:bcrypt_elixir, "~> 3.0"},
+      {:finch, "~> 0.18"}
     ]
   end
 end

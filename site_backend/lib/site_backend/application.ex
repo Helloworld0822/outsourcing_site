@@ -12,7 +12,10 @@ defmodule SiteBackend.Application do
       {:ok, _} = Application.ensure_all_started(app)
     end
 
-    children = [SiteBackend.Repo]
+    children = [
+      SiteBackend.Repo,
+      {Finch, name: SiteBackend.Finch}
+    ]
 
     opts = [strategy: :one_for_one, name: SiteBackend.Supervisor]
     with {:ok, sup} <- Supervisor.start_link(children, opts),

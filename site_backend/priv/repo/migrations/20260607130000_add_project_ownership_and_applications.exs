@@ -1,25 +1,36 @@
 defmodule SiteBackend.Repo.Migrations.AddProjectOwnershipAndApplications do
   use Ecto.Migration
 
+  # init.sql may have already created `project_applications` and the
+  # `client_id` column on `projects`, so every step here has to be
+  # idempotent. Ecto's `add`/`create table` helpers don't expose
+  # IF NOT EXISTS uniformly, so we use raw SQL.
   def change do
-    alter table(:projects) do
-      add :client_id, references(:users, type: :uuid, on_delete: :delete_all), null: true
-    end
+    execute("""
+    ALTER TABLE projects
+      ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES users(id) ON DELETE CASCADE
+    """)
 
-    create_if_not_exists index(:projects, [:client_id])
+    execute("CREATE INDEX IF NOT EXISTS projects_client_id_index ON projects (client_id)")
 
-    create table(:project_applications, primary_key: false) do
-      add :id, :uuid, primary_key: true
-      add :project_id, references(:projects, type: :uuid, on_delete: :delete_all), null: false
-      add :freelancer_id, references(:users, type: :uuid, on_delete: :delete_all), null: false
-      add :message, :text, null: false
-      add :status, :string, null: false, default: "pending"
+    execute("""
+    CREATE TABLE IF NOT EXISTS project_applications (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      freelancer_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      message text NOT NULL,
+      status text NOT NULL DEFAULT 'pending',
+      inserted_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    )
+    """)
 
-      timestamps()
-    end
+    execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS project_applications_project_id_freelancer_id_index
+      ON project_applications (project_id, freelancer_id)
+    """)
 
-    create unique_index(:project_applications, [:project_id, :freelancer_id])
-    create index(:project_applications, [:project_id])
-    create index(:project_applications, [:freelancer_id])
+    execute("CREATE INDEX IF NOT EXISTS project_applications_project_id_index ON project_applications (project_id)")
+    execute("CREATE INDEX IF NOT EXISTS project_applications_freelancer_id_index ON project_applications (freelancer_id)")
   end
 end
