@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
-import { API_BASE } from './apiBase'
-import { readJsonResponse, formatError } from './http'
+import { API_BASE } from '../api/apiBase'
+import { readJsonResponse, formatError } from '../api/http'
 
 type Project = {
   id: string
