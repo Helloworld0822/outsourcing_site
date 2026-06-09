@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
-import { API_BASE } from './apiBase'
-import { readJsonResponse, formatHttpError, setSession, type SessionUser, type Session } from './http'
+import { API_BASE } from '../api/apiBase'
+import { readJsonResponse, formatHttpError, setSession } from '../api/http'
+import type { SessionUser, Session } from '../api/types'
 
 type LoginPanelProps = {
   onLogin: (session: Session) => void

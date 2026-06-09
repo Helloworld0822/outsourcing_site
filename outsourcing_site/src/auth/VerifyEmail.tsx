@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { API_BASE } from './apiBase'
+import { API_BASE } from '../api/apiBase'
 
 type VerifyEmailProps = {
   token: string
