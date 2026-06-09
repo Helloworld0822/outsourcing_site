@@ -508,7 +508,7 @@ export default function App() {
           {/* Login Panel */}
           {showLogin && !isLoggedIn && (
             <div style={{ marginBottom: 20 }}>
-              <LoginPanel onLogin={handleSession} />
+              <LoginPanel onLogin={handleSession} onClose={() => setShowLogin(false)} />
             </div>
           )}
 

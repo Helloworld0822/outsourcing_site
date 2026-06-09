@@ -4,10 +4,11 @@ import { readJsonResponse, formatHttpError, setSession, type SessionUser, type S
 
 type LoginPanelProps = {
   onLogin: (session: Session) => void
+  onClose?: () => void
   onNeedVerification?: (email: string) => void
 }
 
-export default function LoginPanel({ onLogin, onNeedVerification }: LoginPanelProps) {
+export default function LoginPanel({ onLogin, onClose, onNeedVerification }: LoginPanelProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -75,8 +76,28 @@ export default function LoginPanel({ onLogin, onNeedVerification }: LoginPanelPr
   }
 
   return (
-    <div className="modal-overlay" onClick={() => {}}>
-      <div className="modal-card" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" style={{ maxWidth: 400, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              fontSize: 18,
+              lineHeight: 1,
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            &times;
+          </button>
+        )}
         <div style={{ padding: 28 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 18, marginBottom: 12 }}>O</div>
