@@ -1,3 +1,5 @@
+import type { Session, SessionUser } from './types'
+
 export async function readJsonResponse<T>(res: Response): Promise<T | null> {
   const text = await res.text()
   if (!text) return null
@@ -121,19 +123,6 @@ export function formatPrice(price: string | number | null | undefined): string {
 const TOKEN_KEY = 'token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const USER_KEY = 'user'
-
-export type SessionUser = {
-  id: string
-  email: string
-  name: string
-  account_type: 'client' | 'freelancer'
-}
-
-export type Session = {
-  token: string
-  refresh_token: string
-  user: SessionUser
-}
 
 export function getStoredToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
