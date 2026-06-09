@@ -17,8 +17,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "5432:5432"
+    # Internal only – no host port mapping
+    expose:
+      - "5432"
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -39,20 +40,16 @@ services:
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       EMAIL_FROM: "${EMAIL_FROM:-Outsourcing Hub <onboarding@resend.dev>}"
       PORT: 4000
-      # Phoenix dev server settings
       PHX_HOST: "0.0.0.0"
       PHX_PORT: "4000"
-    ports:
-      # Exposed for direct dev access (curl, debugger, etc). Most
-      # traffic should go through nginx on :80.
-      - "4000:4000"
-      - "4001:4001"
+    # Internal only – nginx proxies :80 → :4000 and :80/ws → :4001
+    expose:
+      - "4000"
+      - "4001"
     depends_on:
       - db
     volumes:
       - ./site_backend:/app
-      # Keep deps/build artifacts out of the host tree so the bind
-      # mount doesn't see a half-overwritten _build/deps.
       - backend-deps:/app/deps
       - backend-build:/app/_build
 
@@ -60,16 +57,13 @@ services:
     build:
       context: ./outsourcing_site
       dockerfile: Dockerfile.dev
-    ports:
-      # Exposed so you can hit Vite directly on the host if you want
-      # to bypass nginx. The root nginx proxies to this on :5173.
-      - "5173:5173"
+    # Internal only – nginx proxies / → :5173
+    expose:
+      - "5173"
     depends_on:
       - backend
     volumes:
       - ./outsourcing_site:/app
-      # Anon-style: keep node_modules inside the container (host
-      # platform binaries would otherwise leak in via the bind mount).
       - site-node-modules:/app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
@@ -82,9 +76,6 @@ services:
     depends_on:
       - outsourcing_site
       - backend
-    # Root reverse proxy. /api/ -> backend, everything else -> Vite
-    # dev server on 5173. The proxy passes websocket upgrade headers
-    # so HMR keeps working.
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
