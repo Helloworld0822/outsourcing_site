@@ -23,18 +23,21 @@ const typeIcon: Record<string, string> = {
 
 type Props = {
   token: string
+  refreshToken: string
 }
 
-export default function NotificationBell({ token }: Props) {
+export default function NotificationBell({ token, refreshToken }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const tokenRef = useRef(token)
+  const refreshRef = useRef(refreshToken)
 
   useEffect(() => {
     tokenRef.current = token
-  }, [token])
+    refreshRef.current = refreshToken
+  }, [token, refreshToken])
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
@@ -58,7 +61,8 @@ export default function NotificationBell({ token }: Props) {
 
     load()
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${tokenRef.current}`
+    const wsBase = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+    const wsUrl = `${wsBase}?token=${encodeURIComponent(tokenRef.current)}&refresh_token=${encodeURIComponent(refreshRef.current)}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
@@ -71,14 +75,6 @@ export default function NotificationBell({ token }: Props) {
       } catch {
         // silent
       }
-    }
-
-    ws.onclose = () => {
-      setTimeout(() => {
-        if (wsRef.current === ws) {
-          wsRef.current = null
-        }
-      }, 1000)
     }
 
     return () => {
@@ -102,7 +98,7 @@ export default function NotificationBell({ token }: Props) {
     try {
       await fetch(`${API_BASE}/api/notifications/${id}/read`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
       })
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
     } catch {
@@ -114,7 +110,7 @@ export default function NotificationBell({ token }: Props) {
     try {
       await fetch(`${API_BASE}/api/notifications/read-all`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
       })
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
     } catch {
@@ -126,7 +122,7 @@ export default function NotificationBell({ token }: Props) {
     try {
       const res = await fetch(`${API_BASE}/api/notifications/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
       })
       if (res.ok) {
         setNotifications((prev) => prev.filter((n) => n.id !== id))

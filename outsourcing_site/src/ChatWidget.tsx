@@ -24,11 +24,12 @@ type ChatMessage = {
 
 type Props = {
   token: string
+  refreshToken: string
   userId: string
   userRole: string
 }
 
-export default function ChatWidget({ token, userId, userRole }: Props) {
+export default function ChatWidget({ token, refreshToken, userId, userRole }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null)
@@ -37,12 +38,14 @@ export default function ChatWidget({ token, userId, userRole }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const tokenRef = useRef(token)
+  const refreshRef = useRef(refreshToken)
   const activeRoomRef = useRef(activeRoom)
 
   useEffect(() => {
     tokenRef.current = token
+    refreshRef.current = refreshToken
     activeRoomRef.current = activeRoom
-  }, [token, activeRoom])
+  }, [token, refreshToken, activeRoom])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -89,7 +92,7 @@ export default function ChatWidget({ token, userId, userRole }: Props) {
   useEffect(() => {
     if (!isOpen) return
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${tokenRef.current}`
+    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${encodeURIComponent(tokenRef.current)}&refresh_token=${encodeURIComponent(refreshRef.current)}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 

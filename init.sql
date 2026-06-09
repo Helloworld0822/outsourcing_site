@@ -8,11 +8,22 @@ CREATE TABLE IF NOT EXISTS users (
   account_type text NOT NULL DEFAULT 'client',
   failed_login_count integer NOT NULL DEFAULT 0,
   locked_until timestamp,
+  email_verified boolean NOT NULL DEFAULT false,
+  email_verification_token text,
+  email_verification_sent_at timestamp,
+  refresh_token_hash text,
+  refresh_token_expires_at timestamp,
   inserted_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_index ON users (email);
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_verification_token_index
+  ON users (email_verification_token)
+  WHERE email_verification_token IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_refresh_token_hash_index
+  ON users (refresh_token_hash)
+  WHERE refresh_token_hash IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

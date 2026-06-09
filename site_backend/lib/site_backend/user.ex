@@ -14,6 +14,8 @@ defmodule SiteBackend.User do
     field :email_verified, :boolean, default: false
     field :email_verification_token, :string
     field :email_verification_sent_at, :naive_datetime
+    field :refresh_token_hash, :string
+    field :refresh_token_expires_at, :naive_datetime
     has_many :logins, SiteBackend.Login
 
     timestamps()
@@ -21,6 +23,7 @@ defmodule SiteBackend.User do
 
   @max_failed_logins 10
   @lockout_minutes 15
+  @refresh_token_ttl_days 30
 
   def registration_changeset(struct, params) do
     struct
@@ -96,6 +99,37 @@ defmodule SiteBackend.User do
   def verify_email(user) do
     user
     |> change(%{email_verified: true})
+  end
+
+  def generate_refresh_token do
+    :crypto.strong_rand_bytes(48)
+    |> Base.url_encode64(padding: false)
+  end
+
+  def hash_refresh_token(token) when is_binary(token) do
+    :crypto.hash(:sha256, token) |> Base.encode16(case: :lower)
+  end
+
+  def set_refresh_token(user, raw_token) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    expires_at = NaiveDateTime.add(now, @refresh_token_ttl_days * 24 * 60 * 60, :second) |> NaiveDateTime.truncate(:second)
+
+    user
+    |> change(%{
+      refresh_token_hash: hash_refresh_token(raw_token),
+      refresh_token_expires_at: expires_at
+    })
+  end
+
+  def clear_refresh_token(user) do
+    user
+    |> change(%{refresh_token_hash: nil, refresh_token_expires_at: nil})
+  end
+
+  def refresh_token_valid?(%{refresh_token_hash: nil}), do: false
+  def refresh_token_valid?(%{refresh_token_expires_at: nil}), do: false
+  def refresh_token_valid?(%{refresh_token_expires_at: expires_at}) do
+    NaiveDateTime.compare(expires_at, NaiveDateTime.utc_now()) == :gt
   end
 
   defp put_pass_hash(changeset) do

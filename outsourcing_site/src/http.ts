@@ -113,3 +113,151 @@ export function formatPrice(price: string | number | null | undefined): string {
   if (!numeric) return str
   return `${Number(numeric).toLocaleString('ko-KR')}원`
 }
+
+/* =========================================================================
+ * 인증 토큰 관리 + 자동 갱신
+ * ========================================================================= */
+
+const TOKEN_KEY = 'token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
+const USER_KEY = 'user'
+
+export type SessionUser = {
+  id: string
+  email: string
+  name: string
+  account_type: 'client' | 'freelancer'
+}
+
+export type Session = {
+  token: string
+  refresh_token: string
+  user: SessionUser
+}
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function getStoredRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function getStoredUser(): SessionUser | null {
+  const raw = localStorage.getItem(USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as SessionUser
+  } catch {
+    return null
+  }
+}
+
+export function setSession(session: Session): void {
+  localStorage.setItem(TOKEN_KEY, session.token)
+  localStorage.setItem(REFRESH_TOKEN_KEY, session.refresh_token)
+  localStorage.setItem(USER_KEY, JSON.stringify(session.user))
+}
+
+export function clearSession(): void {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+export function hasRefreshToken(): boolean {
+  return !!getStoredRefreshToken()
+}
+
+let refreshInFlight: Promise<boolean> | null = null
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight
+
+  const refreshToken = getStoredRefreshToken()
+  if (!refreshToken) return false
+
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+
+      if (!res.ok) {
+        clearSession()
+        return false
+      }
+
+      const body = (await res.json()) as { token: string; refresh_token: string }
+      localStorage.setItem(TOKEN_KEY, body.token)
+      localStorage.setItem(REFRESH_TOKEN_KEY, body.refresh_token)
+      return true
+    } catch {
+      clearSession()
+      return false
+    } finally {
+      refreshInFlight = null
+    }
+  })()
+
+  return refreshInFlight
+}
+
+export type ApiOptions = RequestInit & {
+  /** true면 401 시 refresh를 시도하지 않음 (login/refresh 엔드포인트 자체에서 사용) */
+  skipAuth?: boolean
+  /** 응답 본문을 JSON으로 파싱해서 돌려받을지 여부 (기본: true) */
+  parseJson?: boolean
+}
+
+export class ApiError extends Error {
+  status: number
+  body: unknown
+  retryAfter: string | null
+
+  constructor(status: number, body: unknown, retryAfter: string | null, message: string) {
+    super(message)
+    this.status = status
+    this.body = body
+    this.retryAfter = retryAfter
+  }
+}
+
+export async function apiRequest<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
+  const { skipAuth, parseJson = true, headers, ...rest } = options
+  const doFetch = async (overrideToken?: string | null): Promise<Response> => {
+    const finalHeaders: Record<string, string> = { ...(headers as Record<string, string> | undefined) }
+    if (rest.body && !(rest.body instanceof FormData) && !finalHeaders['Content-Type']) {
+      finalHeaders['Content-Type'] = 'application/json'
+    }
+    if (!skipAuth) {
+      const token = overrideToken ?? getStoredToken()
+      if (token) finalHeaders['Authorization'] = `Bearer ${token}`
+    }
+    return fetch(path, { ...rest, headers: finalHeaders })
+  }
+
+  let res = await doFetch()
+
+  if (res.status === 401 && !skipAuth) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      res = await doFetch()
+    }
+  }
+
+  const body = parseJson ? await readJsonResponse<unknown>(res) : null
+
+  if (!res.ok) {
+    const retryAfter = res.headers.get('Retry-After')
+    const message = formatHttpError(res.status, retryAfter, body)
+    if (res.status === 401 && !skipAuth) {
+      clearSession()
+    }
+    throw new ApiError(res.status, body, retryAfter, message)
+  }
+
+  return body as T
+}

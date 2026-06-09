@@ -2,17 +2,10 @@ import { useState, type ChangeEvent } from 'react'
 import { TextInput, Button, Heading } from '@primer/react'
 import { EyeIcon, EyeClosedIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
-import { readJsonResponse, formatHttpError } from './http'
-
-type SessionUser = {
-  id: string
-  email: string
-  name: string
-  account_type: 'client' | 'freelancer'
-}
+import { readJsonResponse, formatHttpError, setSession, type SessionUser, type Session } from './http'
 
 type LoginPanelProps = {
-  onLogin: (session: { token: string; user: SessionUser }) => void
+  onLogin: (session: Session) => void
   onNeedVerification?: (email: string) => void
 }
 
@@ -36,7 +29,7 @@ export default function LoginPanel({ onLogin, onNeedVerification }: LoginPanelPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const body = await readJsonResponse<{ error?: string; token?: string; user?: SessionUser }>(res)
+      const body = await readJsonResponse<{ error?: string; token?: string; refresh_token?: string; user?: SessionUser }>(res)
       if (!res.ok) {
         const retryAfter = res.headers.get('retry-after')
         const errorMsg = formatHttpError(res.status, retryAfter, body?.error)
@@ -45,13 +38,13 @@ export default function LoginPanel({ onLogin, onNeedVerification }: LoginPanelPr
           setIsVerificationError(true)
         }
       } else {
-        if (!body?.token || !body.user) {
+        if (!body?.token || !body.refresh_token || !body.user) {
           setError('로그인 응답이 올바르지 않습니다.')
           return
         }
-        localStorage.setItem('token', body.token)
-        localStorage.setItem('user', JSON.stringify(body.user))
-        onLogin({ token: body.token, user: body.user })
+        const session: Session = { token: body.token, refresh_token: body.refresh_token, user: body.user }
+        setSession(session)
+        onLogin(session)
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '로그인 중 오류가 발생했습니다.')

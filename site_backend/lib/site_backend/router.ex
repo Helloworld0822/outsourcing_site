@@ -129,7 +129,13 @@ defmodule SiteBackend.Router do
 
                   SiteBackend.RateLimiter.reset(key)
 
-                  {:ok, token, _claims} = SiteBackend.Auth.generate_jwt(%{user_id: user.id})
+                  access_token = SiteBackend.Auth.generate_access_token(user.id)
+                  raw_refresh_token = User.generate_refresh_token()
+                  jwt_refresh_token = SiteBackend.Auth.generate_refresh_token(user.id, raw_refresh_token)
+
+                  user
+                  |> User.set_refresh_token(raw_refresh_token)
+                  |> Repo.update()
 
                   login_changeset =
                     Login.changeset(%Login{}, %{
@@ -143,7 +149,11 @@ defmodule SiteBackend.Router do
 
                       conn
                       |> put_resp_content_type("application/json")
-                      |> send_resp(200, Jason.encode!(%{token: token, user: user_to_map(user)}))
+                      |> send_resp(200, Jason.encode!(%{
+                        token: access_token,
+                        refresh_token: jwt_refresh_token,
+                        user: user_to_map(user)
+                      }))
 
                     {:error, changeset} ->
                       json_error(conn, 500, ErrorMessages.translate_changeset_errors(changeset))
@@ -173,6 +183,69 @@ defmodule SiteBackend.Router do
               end
             end
         end
+    end
+  end
+
+  post "/refresh" do
+    %{"refresh_token" => refresh_token} = conn.body_params
+
+    cond do
+      not is_binary(refresh_token) or byte_size(refresh_token) == 0 ->
+        json_error(conn, 400, "refresh_token이 필요합니다.")
+
+      true ->
+        case SiteBackend.Auth.verify_jwt(refresh_token) do
+          {:ok, %{"type" => "refresh", "user_id" => user_id, "jti" => jti}} ->
+            user = Repo.get(User, user_id)
+
+            if user do
+              token_hash = User.hash_refresh_token(jti)
+
+              if user.refresh_token_hash == token_hash and User.refresh_token_valid?(user) do
+                new_access_token = SiteBackend.Auth.generate_access_token(user.id)
+                new_raw_refresh_token = User.generate_refresh_token()
+                new_jwt_refresh_token = SiteBackend.Auth.generate_refresh_token(user.id, new_raw_refresh_token)
+
+                user
+                |> User.set_refresh_token(new_raw_refresh_token)
+                |> Repo.update()
+
+                conn
+                |> put_resp_content_type("application/json")
+                |> send_resp(200, Jason.encode!(%{
+                  token: new_access_token,
+                  refresh_token: new_jwt_refresh_token
+                }))
+              else
+                SecurityAudit.log_event(:refresh_token_invalid, %{ip: get_client_ip(conn)})
+                json_error(conn, 401, "refresh_token이 유효하지 않거나 만료되었습니다.")
+              end
+            else
+              json_error(conn, 401, "사용자를 찾을 수 없습니다.")
+            end
+
+          {:ok, _} ->
+            json_error(conn, 401, "refresh_token이 아닙니다.")
+
+          {:error, _} ->
+            json_error(conn, 401, "refresh_token이 유효하지 않거나 만료되었습니다.")
+        end
+    end
+  end
+
+  post "/logout" do
+    case authorize_roles(conn, [:client, :freelancer]) do
+      {:ok, user} ->
+        user
+        |> User.clear_refresh_token()
+        |> Repo.update()
+
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(200, Jason.encode!(%{message: "로그아웃되었습니다."}))
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
     end
   end
 
@@ -891,6 +964,7 @@ defmodule SiteBackend.Router do
   defp current_user(conn) do
     with token when is_binary(token) <- bearer_token(conn),
          {:ok, claims} <- SiteBackend.Auth.verify_jwt(token),
+         %{"type" => "access"} <- claims,
          user_id when is_binary(user_id) <- Map.get(claims, "user_id") || Map.get(claims, :user_id),
          user when not is_nil(user) <- Repo.get(User, user_id) do
       {:ok, user}
@@ -907,6 +981,18 @@ defmodule SiteBackend.Router do
       ["Bearer " <> token] -> token
       ["bearer " <> token] -> token
       _ -> nil
+    end
+  end
+
+  defp get_client_ip(conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
+      [ip | _] -> ip
+      [] ->
+        case conn.remote_ip do
+          {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+          {a, b, c, d, e, f, g, h} -> :inet.ntoa({a, b, c, d, e, f, g, h}) |> to_string()
+          _ -> "unknown"
+        end
     end
   end
 

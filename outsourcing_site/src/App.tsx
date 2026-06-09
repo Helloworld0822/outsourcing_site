@@ -20,19 +20,24 @@ import ChatWidget from './ChatWidget'
 import VerifyEmail from './VerifyEmail'
 import heroImage from './assets/hero.png'
 import { API_BASE } from './apiBase'
-import { readJsonResponse, formatError, formatPrice } from './http'
+import {
+  readJsonResponse,
+  formatError,
+  formatHttpError,
+  formatPrice,
+  getStoredToken,
+  getStoredRefreshToken,
+  getStoredUser,
+  setSession as persistSession,
+  clearSession as clearPersistedSession,
+  type SessionUser,
+} from './http'
 
 type AccountType = 'client' | 'freelancer'
 
-type SessionUser = {
-  id: string
-  email: string
-  name: string
-  account_type: AccountType
-}
-
 type Session = {
   token: string
+  refresh_token: string
   user: SessionUser
 }
 
@@ -215,16 +220,13 @@ export default function App() {
   const [servicesRefreshKey, setServicesRefreshKey] = useState(0)
   const [orderTarget, setOrderTarget] = useState<FreelancerService | null>(null)
   const [session, setSession] = useState<Session | null>(() => {
-    const token = localStorage.getItem('token')
-    const user = localStorage.getItem('user')
+    const token = getStoredToken()
+    const refresh_token = getStoredRefreshToken()
+    const user = getStoredUser()
 
-    if (!token || !user) return null
+    if (!token || !refresh_token || !user) return null
 
-    try {
-      return { token, user: JSON.parse(user) as SessionUser }
-    } catch {
-      return null
-    }
+    return { token, refresh_token, user }
   })
   const [colorMode, setColorMode] = useState<'day' | 'night'>(() => {
     const stored = localStorage.getItem('colorMode')
@@ -268,11 +270,9 @@ export default function App() {
 
   useEffect(() => {
     if (session) {
-      localStorage.setItem('token', session.token)
-      localStorage.setItem('user', JSON.stringify(session.user))
+      persistSession(session)
     } else {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearPersistedSession()
     }
   }, [session])
 
@@ -290,28 +290,86 @@ export default function App() {
     })
   }, [publicProjects, query, skillFilter])
 
+  const tryRefresh = useCallback(async (): Promise<boolean> => {
+    const refreshToken = session?.refresh_token ?? getStoredRefreshToken()
+    if (!refreshToken) return false
+
+    try {
+      const res = await fetch(`${API_BASE}/api/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+      if (!res.ok) return false
+      const body = (await readJsonResponse<{ token: string; refresh_token: string }>(res))
+      if (!body?.token || !body.refresh_token) return false
+
+      setSession((prev) => (prev ? { ...prev, token: body.token, refresh_token: body.refresh_token } : prev))
+      return true
+    } catch {
+      return false
+    }
+  }, [session?.refresh_token])
+
   const apiRequest = useCallback(
     async <T,>(path: string, init: RequestInit = {}, auth = false): Promise<T> => {
-      const headers = new Headers(init.headers)
-      headers.set('Content-Type', 'application/json')
-
-      if (auth && session?.token) {
-        headers.set('Authorization', `Bearer ${session.token}`)
+      const headers: Record<string, string> = {}
+      const incoming = init.headers
+      if (incoming) {
+        if (incoming instanceof Headers) {
+          incoming.forEach((value, key) => {
+            headers[key] = value
+          })
+        } else if (Array.isArray(incoming)) {
+          incoming.forEach(([key, value]) => {
+            headers[key] = value
+          })
+        } else {
+          Object.assign(headers, incoming as Record<string, string>)
+        }
+      }
+      if (init.body && !(init.body instanceof FormData) && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json'
+      }
+      if (auth) {
+        const token = session?.token ?? getStoredToken()
+        if (token) headers['Authorization'] = `Bearer ${token}`
       }
 
-      const res = await fetch(`${API_BASE}${path}`, {
-        ...init,
-        headers,
-      })
+      const doFetch = async (overrideToken?: string | null): Promise<Response> => {
+        const finalHeaders = { ...headers }
+        if (auth) {
+          const t = overrideToken ?? session?.token ?? getStoredToken()
+          if (t) finalHeaders['Authorization'] = `Bearer ${t}`
+          else delete finalHeaders['Authorization']
+        }
+        return fetch(`${API_BASE}${path}`, { ...init, headers: finalHeaders })
+      }
+
+      let res = await doFetch()
+
+      if (res.status === 401 && auth) {
+        const refreshed = await tryRefresh()
+        if (refreshed) {
+          const newToken = getStoredToken()
+          setSession((prev) => (prev && newToken ? { ...prev, token: newToken } : prev))
+          res = await doFetch()
+        }
+      }
 
       const body = await readJsonResponse<T>(res)
       if (!res.ok) {
-        throw new Error(formatError((body as { error?: unknown } | null)?.error, '요청 실패'))
+        if (res.status === 401 && auth) {
+          setSession(null)
+        }
+        const err = (body as { error?: unknown } | null)?.error
+        const retryAfter = res.headers.get('retry-after')
+        throw new Error(formatHttpError(res.status, retryAfter, err))
       }
 
       return (body ?? ({} as T)) as T
     },
-    [session],
+    [session, tryRefresh],
   )
 
   const loadPublicProjects = useCallback(async () => {
@@ -491,7 +549,7 @@ export default function App() {
                 {colorMode === 'day' ? '다크 모드' : '화이트 모드'}
               </Button>
               {session && (
-                <NotificationBell token={session.token} />
+                <NotificationBell token={session.token} refreshToken={session.refresh_token} />
               )}
               {!isLoggedIn ? (
                 <Button variant="invisible" onClick={() => setShowLogin((s) => !s)}>
@@ -566,7 +624,7 @@ export default function App() {
                 <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginBottom: 16, background: 'var(--bg)' }}>
                   <Heading as="h3">프로젝트 생성</Heading>
                   <div style={{ marginTop: 8 }}>
-                    <label>제목</label>
+                    <div>제목</div>
                     <TextInput
                       value={projectForm.title}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, title: e.target.value }))}
@@ -778,6 +836,7 @@ export default function App() {
           {session && (
             <ChatWidget
               token={session.token}
+              refreshToken={session.refresh_token}
               userId={session.user.id}
               userRole={session.user.account_type}
             />
