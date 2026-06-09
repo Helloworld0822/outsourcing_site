@@ -72,7 +72,7 @@ services:
   nginx:
     image: nginx:1.25
     ports:
-      - "80:80"
+      - "81:80"
     depends_on:
       - outsourcing_site
       - backend
