@@ -784,13 +784,10 @@ defmodule SiteBackend.Router do
                   |> Repo.update()
                   |> case do
                     {:ok, verified_user} ->
-                      Email.verification_email(user.email, verified_user.email_verification_token)
-                      |> SiteBackend.Mailer.deliver()
+                      Email.send_verification_email(user.email, verified_user.email_verification_token)
                       |> case do
-                        {:ok, _} ->
-                          Logger.info("Verification email resent to #{user.email}")
-                        {:error, reason} ->
-                          Logger.error("Failed to resend verification email to #{user.email}: #{inspect(reason)}")
+                        {:ok, _} -> :ok
+                        {:error, reason} -> Logger.error("Failed to resend verification email to #{user.email}: #{reason}")
                       end
 
                       send_json(conn, %{message: "인증 이메일이 발송되었습니다."})
@@ -851,13 +848,10 @@ defmodule SiteBackend.Router do
         |> Repo.update()
         |> case do
           {:ok, verified_user} ->
-            Email.verification_email(user.email, verified_user.email_verification_token)
-            |> SiteBackend.Mailer.deliver()
+            Email.send_verification_email(user.email, verified_user.email_verification_token)
             |> case do
-              {:ok, _} ->
-                Logger.info("Verification email sent to #{user.email}")
-              {:error, reason} ->
-                Logger.error("Failed to send verification email to #{user.email}: #{inspect(reason)}")
+              {:ok, _} -> :ok
+              {:error, reason} -> Logger.error("Failed to send verification email to #{user.email}: #{reason}")
             end
           {:error, _} -> :ok
         end

@@ -31,8 +31,7 @@ defmodule SiteBackend.MixProject do
       {:joken, "~> 2.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:finch, "~> 0.18"},
-      {:telemetry, "~> 1.0"},
-      {:swoosh, "~> 1.16"}
+      {:telemetry, "~> 1.0"}
     ]
   end
 end

@@ -1,16 +1,47 @@
 defmodule SiteBackend.Email do
-  import Swoosh.Email
+  require Logger
 
-  def verification_email(email, token) do
+  @resend_api_url "https://api.resend.com/emails"
+
+  def send_verification_email(email, token) do
+    api_key = System.get_env("RESEND_API_KEY")
     base_url = Application.get_env(:site_backend, :email_verification)[:base_url] || "http://localhost:5173"
+    from_email = System.get_env("EMAIL_FROM") || "Outsourcing Hub <onboarding@resend.dev>"
     verification_url = "#{base_url}/verify-email?token=#{token}"
 
-    new()
-    |> to({email, email})
-    |> from({"Outsourcing Hub", "noreply@outsourcing-hub.com"})
-    |> subject("[Outsourcing Hub] 이메일 인증 요청")
-    |> html_body(verification_html(verification_url))
-    |> text_body(verification_text(verification_url))
+    if is_nil(api_key) or api_key == "" do
+      Logger.warning("[email] RESEND_API_KEY가 설정되지 않아 인증 메일을 발송하지 않습니다. URL: #{verification_url}")
+      {:ok, :skipped}
+    else
+      body =
+        Jason.encode!(%{
+          from: from_email,
+          to: [email],
+          subject: "[Outsourcing Hub] 이메일 인증 요청",
+          html: verification_html(verification_url),
+          text: verification_text(verification_url)
+        })
+
+      req =
+        Finch.build(:post, @resend_api_url, [
+          {"authorization", "Bearer #{api_key}"},
+          {"content-type", "application/json"}
+        ], body)
+
+      case Finch.request(req, SiteBackend.Finch, receive_timeout: 15_000) do
+        {:ok, %Finch.Response{status: status, body: _resp_body}} when status in 200..299 ->
+          Logger.info("[email] 인증 메일 발송 성공: #{email}")
+          {:ok, :sent}
+
+        {:ok, %Finch.Response{status: status, body: resp_body}} ->
+          Logger.error("[email] Resend API 오류 (#{status}): #{resp_body}")
+          {:error, "이메일 발송에 실패했습니다."}
+
+        {:error, reason} ->
+          Logger.error("[email] Resend API 연결 실패: #{inspect(reason)}")
+          {:error, "이메일 서버에 연결할 수 없습니다."}
+      end
+    end
   end
 
   defp verification_html(url) do
