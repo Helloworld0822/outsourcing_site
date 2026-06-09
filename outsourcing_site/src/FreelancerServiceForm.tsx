@@ -1,6 +1,4 @@
 import { useState, type ChangeEvent } from 'react'
-import { TextInput, Textarea, Button, Heading, Text, Select } from '@primer/react'
-import { PlusIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
 
@@ -106,100 +104,111 @@ export default function FreelancerServiceForm({
 
   if (!open) {
     return (
-      <Button variant="primary" onClick={() => setOpen(true)} leadingVisual={PlusIcon}>
+      <button className="btn btn-primary" onClick={() => setOpen(true)}>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 1 1 0 1.5H8.5v4.25a.75.75 0 1 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
         새 서비스 등록
-      </Button>
+      </button>
     )
   }
 
   return (
-    <div
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: 20,
-        background: 'var(--surface)',
-        marginBottom: 20,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <Heading as="h3" style={{ fontSize: 18, margin: 0 }}>새 서비스 등록</Heading>
-        <Button variant="invisible" onClick={() => { reset(); setOpen(false) }}>닫기</Button>
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>새 서비스 등록</span>
+        <button className="btn btn-ghost" onClick={() => { reset(); setOpen(false) }}>
+          닫기
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>서비스 제목 *</label>
-          <TextInput
-            placeholder="예) React로 반응형 웹앱 개발"
-            value={title}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+      <div className="card-body">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 16 }}>
+          <div>
+            <label className="form-label">서비스 제목 *</label>
+            <input
+              className="form-input"
+              placeholder="예) React로 반응형 웹앱 개발"
+              value={title}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">카테고리 *</label>
+            <select
+              className="form-input"
+              value={category}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <label className="form-label">상세 설명 *</label>
+          <textarea
+            className="form-textarea"
+            placeholder="어떤 서비스를 제공하는지, 작업 범위, 포함 사항 등을 자세히 적어주세요."
+            value={description}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
+            rows={5}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>카테고리 *</label>
-          <Select value={category} onChange={(e: ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </Select>
+
+        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="form-label">기술 스택 (쉼표 구분)</label>
+            <input
+              className="form-input"
+              placeholder="React, TypeScript, Next.js"
+              value={skills}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSkills(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">가격 *</label>
+            <input
+              className="form-input"
+              placeholder="500,000원"
+              value={price}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">작업일 (일)</label>
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              value={String(deliveryDays)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setDeliveryDays(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </div>
         </div>
-      </div>
 
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label>상세 설명 *</label>
-        <Textarea
-          placeholder="어떤 서비스를 제공하는지, 작업 범위, 포함 사항 등을 자세히 적어주세요."
-          value={description}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-          rows={5}
-        />
-      </div>
-
-      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>기술 스택 (쉼표 구분)</label>
-          <TextInput
-            placeholder="React, TypeScript, Next.js"
-            value={skills}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setSkills(e.target.value)}
+        <div style={{ marginTop: 16 }}>
+          <label className="form-label">썸네일 URL (선택)</label>
+          <input
+            className="form-input"
+            placeholder="https://..."
+            value={thumbnailUrl}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setThumbnailUrl(e.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>가격 *</label>
-          <TextInput
-            placeholder="500,000원"
-            value={price}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)}
-          />
+
+        {error && (
+          <p style={{ marginTop: 12, fontSize: 13, color: 'var(--error)' }}>{error}</p>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button className="btn btn-secondary" onClick={() => { reset(); setOpen(false) }}>
+            취소
+          </button>
+          <button className="btn btn-primary" onClick={submit} disabled={loading}>
+            {loading ? '등록 중...' : '등록하기'}
+          </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>작업일 (일)</label>
-          <TextInput
-            type="number"
-            min={1}
-            value={String(deliveryDays)}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDeliveryDays(Math.max(1, Number(e.target.value) || 1))}
-          />
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label>썸네일 URL (선택)</label>
-        <TextInput
-          placeholder="https://..."
-          value={thumbnailUrl}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setThumbnailUrl(e.target.value)}
-        />
-      </div>
-
-      {error && <Text color="danger.fg" style={{ display: 'block', marginTop: 10 }}>{error}</Text>}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-        <Button variant="default" onClick={() => { reset(); setOpen(false) }}>취소</Button>
-        <Button variant="primary" onClick={submit} disabled={loading}>
-          {loading ? '등록 중...' : '등록하기'}
-        </Button>
       </div>
     </div>
   )

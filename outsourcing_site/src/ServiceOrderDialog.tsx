@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent } from 'react'
-import { Button, Heading, Text, Textarea } from '@primer/react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
 import type { FreelancerService } from './FreelancerServiceForm'
@@ -50,58 +49,46 @@ export default function ServiceOrderDialog({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--overlay)',
-        zIndex: 9999,
-        padding: 16,
-      }}
-    >
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        style={{
-          background: 'var(--surface)',
-          padding: 20,
-          borderRadius: 16,
-          width: 520,
-          maxWidth: '100%',
-          boxShadow: 'var(--shadow)',
-          border: '1px solid var(--border)',
-        }}
+        className="modal-card"
+        style={{ maxWidth: 520 }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Heading as="h3" style={{ margin: 0 }}>서비스 주문</Heading>
-          <Button variant="invisible" onClick={onClose}>닫기</Button>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>서비스 주문</span>
+          <button className="btn btn-ghost" onClick={onClose}>닫기</button>
         </div>
 
-        <div style={{ marginBottom: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)' }}>
-          <Text style={{ fontWeight: 'bold', display: 'block' }}>{service.title}</Text>
-          <Text color="fg.muted" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-            {service.price} · {service.delivery_days}일 이내
-          </Text>
-        </div>
+        <div className="card-body">
+          <div style={{ marginBottom: 16, padding: 14, border: '1px solid var(--border-light)', borderRadius: 'var(--radius)', background: 'var(--surface-alt)' }}>
+            <p style={{ fontWeight: 600, fontSize: 14, margin: '0 0 4px 0' }}>{service.title}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+              {service.price} · {service.delivery_days}일 이내
+            </p>
+          </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label>요구사항 *</label>
-          <Textarea
-            placeholder="원하는 작업 내용, 일정, 참고 자료 등을 자세히 적어주세요."
-            value={requirements}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setRequirements(e.target.value)}
-            rows={6}
-          />
-        </div>
+          <div>
+            <label className="form-label">요구사항 *</label>
+            <textarea
+              className="form-textarea"
+              placeholder="원하는 작업 내용, 일정, 참고 자료 등을 자세히 적어주세요."
+              value={requirements}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setRequirements(e.target.value)}
+              rows={6}
+            />
+          </div>
 
-        {error && <Text color="danger.fg" style={{ display: 'block', marginTop: 10 }}>{error}</Text>}
+          {error && (
+            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--error)' }}>{error}</p>
+          )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <Button variant="default" onClick={onClose}>취소</Button>
-          <Button variant="primary" onClick={submit} disabled={loading}>
-            {loading ? '주문 중...' : '주문하기'}
-          </Button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+            <button className="btn btn-secondary" onClick={onClose}>취소</button>
+            <button className="btn btn-primary" onClick={submit} disabled={loading}>
+              {loading ? '주문 중...' : '주문하기'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

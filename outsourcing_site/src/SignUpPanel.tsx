@@ -1,6 +1,4 @@
 import { useState, type ChangeEvent } from 'react'
-import { TextInput, Button, Heading, Select } from '@primer/react'
-import { EyeIcon, EyeClosedIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatHttpError } from './http'
 
@@ -82,29 +80,31 @@ export default function SignUpPanel({ onClose }: { onClose: () => void }) {
 
   if (signupComplete) {
     return (
-      <div style={{position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay)', zIndex: 9999, padding: 16}}>
-        <div style={{background: 'var(--surface)', padding: 24, borderRadius: 16, width: 480, maxWidth: '100%', boxShadow: 'var(--shadow)', border: '1px solid var(--border)', textAlign: 'center'}}>
-          <div style={{fontSize: 48, marginBottom: 16}}>📧</div>
-          <Heading as="h3">이메일 인증이 필요합니다</Heading>
-          <p style={{marginTop: 12, color: 'var(--fg-muted)', fontSize: 14, lineHeight: 1.6}}>
-            <strong>{email}</strong>로 인증 메일을 발송했습니다.<br />
-            메일함에서 인증 링크를 클릭하여 회원가입을 완료해주세요.
-          </p>
-          <p style={{marginTop: 8, color: 'var(--fg-muted)', fontSize: 13}}>
-            메일이 오지 않았나요? 스팸함을 확인하거나 아래 버튼을 눌러 재발송하세요.
-          </p>
-          <div style={{marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center'}}>
-            <Button variant="primary" onClick={resendVerification} disabled={resendLoading}>
-              {resendLoading ? '발송 중...' : '인증 메일 재발송'}
-            </Button>
-            {resendMessage && (
-              <p style={{fontSize: 13, color: resendMessage.includes('발송') ? '#10b981' : '#cf222e', marginTop: 4}}>
-                {resendMessage}
-              </p>
-            )}
-            <Button variant="default" onClick={onClose} style={{marginTop: 8}}>
-              로그인 페이지로
-            </Button>
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-card" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📧</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>이메일 인증이 필요합니다</h2>
+            <p style={{ marginTop: 10, color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
+              <strong>{email}</strong>로 인증 메일을 발송했습니다.<br />
+              메일함에서 인증 링크를 클릭하여 회원가입을 완료해주세요.
+            </p>
+            <p style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+              메일이 오지 않았나요? 스팸함을 확인하거나 아래 버튼을 눌러 재발송하세요.
+            </p>
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+              <button className="btn btn-primary" onClick={resendVerification} disabled={resendLoading}>
+                {resendLoading ? '발송 중...' : '인증 메일 재발송'}
+              </button>
+              {resendMessage && (
+                <p style={{ fontSize: 12, color: resendMessage.includes('발송') ? 'var(--success)' : 'var(--error)' }}>
+                  {resendMessage}
+                </p>
+              )}
+              <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 4 }}>
+                로그인 페이지로
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -112,84 +112,106 @@ export default function SignUpPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={{position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--overlay)', zIndex: 9999, padding: 16}}>
-      <div style={{background: 'var(--surface)', padding: 20, borderRadius: 16, width: 480, maxWidth: '100%', boxShadow: 'var(--shadow)', border: '1px solid var(--border)'}}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Heading as="h3">회원가입</Heading>
-          <Button variant="invisible" onClick={onClose}>닫기</Button>
-        </div>
-
-        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12}}>
-          <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
-            <label style={{fontSize: 14}}>이름</label>
-            <TextInput placeholder="이름을 입력해주세요" value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
-          </div>
-          <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
-            <label style={{fontSize: 14}}>회원 유형</label>
-            <Select onChange={(e: ChangeEvent<HTMLSelectElement>) => setAccountType(e.target.value === 'freelancer' ? 'freelancer' : 'client')} value={accountType}>
-              <option value="client">클라이언트</option>
-              <option value="freelancer">프리랜서</option>
-            </Select>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>회원가입</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>새 계정을 만드세요</p>
+            </div>
+            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>닫기</button>
           </div>
 
-          <div style={{gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 6}}>
-            <label style={{fontSize: 14}}>이메일</label>
-            <TextInput placeholder="이메일을 입력해주세요" value={email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label className="form-label">이름</label>
+              <input className="form-input" placeholder="이름을 입력하세요" value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
+            </div>
+            <div>
+              <label className="form-label">회원 유형</label>
+              <select
+                className="form-input"
+                value={accountType}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setAccountType(e.target.value === 'freelancer' ? 'freelancer' : 'client')}
+                style={{ padding: '8px 12px' }}
+              >
+                <option value="client">클라이언트</option>
+                <option value="freelancer">프리랜서</option>
+              </select>
+            </div>
           </div>
 
-          <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
-            <label style={{fontSize: 14}}>비밀번호</label>
-            <TextInput
-              type={showPassword ? 'text' : 'password'}
-              placeholder="8자 이상, 영문+숫자 포함"
-              value={password}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              trailingAction={
-                <TextInput.Action
+          <div style={{ marginTop: 14 }}>
+            <label className="form-label">이메일</label>
+            <input className="form-input" type="email" placeholder="이메일을 입력하세요" value={email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
+            <div>
+              <label className="form-label">비밀번호</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="8자 이상, 영문+숫자"
+                  value={password}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  icon={showPassword ? EyeClosedIcon : EyeIcon}
-                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: '4px 6px' }}
+                >
+                  {showPassword ? '숨기기' : '보기'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="form-label">비밀번호 확인</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="비밀번호를 다시 입력하세요"
+                  value={confirm}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)}
+                  style={{ paddingRight: 40 }}
                 />
-              }
-            />
-          </div>
-          <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
-            <label style={{fontSize: 14}}>비밀번호 확인</label>
-            <TextInput
-              type={showConfirm ? 'text' : 'password'}
-              placeholder="비밀번호를 다시 입력해주세요"
-              value={confirm}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)}
-              trailingAction={
-                <TextInput.Action
+                <button
+                  type="button"
                   onClick={() => setShowConfirm(v => !v)}
-                  icon={showConfirm ? EyeClosedIcon : EyeIcon}
-                  aria-label={showConfirm ? '비밀번호 숨기기' : '비밀번호 보기'}
-                />
-              }
-            />
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: '4px 6px' }}
+                >
+                  {showConfirm ? '숨기기' : '보기'}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {error && (
-          <div style={{
-            marginTop: 12,
-            padding: '10px 14px',
-            borderRadius: 8,
-            background: 'rgba(248, 81, 73, 0.1)',
-            border: '1px solid rgba(248, 81, 73, 0.3)',
-            color: '#cf222e',
-            fontSize: 14,
-            lineHeight: 1.5,
-            whiteSpace: 'pre-line',
-          }}>
-            {error}
+          {error && (
+            <div style={{
+              marginTop: 14,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--error-light)',
+              border: '1px solid rgba(220, 38, 38, 0.15)',
+              color: 'var(--error)',
+              fontSize: 13,
+              lineHeight: 1.5,
+              whiteSpace: 'pre-line',
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+            <button className="btn btn-secondary" onClick={onClose}>취소</button>
+            <button className="btn btn-primary" onClick={submitSignUp} disabled={loading}>
+              {loading ? '가입 중...' : '가입하기'}
+            </button>
           </div>
-        )}
-
-        <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16}}>
-          <Button variant="default" onClick={onClose}>취소</Button>
-          <Button variant="primary" onClick={submitSignUp} disabled={loading}>{loading ? '가입 중...' : '가입하기'}</Button>
         </div>
       </div>
     </div>

@@ -1,6 +1,4 @@
 import { useState, type ChangeEvent } from 'react'
-import { Button, Heading, Text } from '@primer/react'
-import { CopilotIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatError } from './http'
 
@@ -59,122 +57,105 @@ export default function AiRecommend({ token }: { token: string | null }) {
   }
 
   return (
-    <div style={{
-      border: '1px solid var(--border)',
-      borderRadius: 12,
-      padding: 20,
-      background: 'var(--surface)',
-      marginBottom: 24,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <CopilotIcon size={20} />
-        <Heading as="h3" style={{ margin: 0, fontSize: 18 }}>AI 외주 추천</Heading>
-      </div>
-      <Text color="fg.muted" style={{ display: 'block', marginBottom: 12, fontSize: 14 }}>
-        보유 기술, 희망 예산, 원하는 작업 유형을 입력하면 적합한 프로젝트를 추천해드립니다.
-      </Text>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <textarea
-          value={prompt}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
-          placeholder="예) React와 TypeScript를 잘 다루고, 예산은 100만원 이상이면 좋겠습니다. 프론트엔드 작업을 원해요."
-          rows={3}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-strong)',
-            color: 'inherit',
-            resize: 'vertical',
-            fontSize: 14,
-          }}
-        />
-        <Button
-          variant="primary"
-          onClick={handleRecommend}
-          disabled={loading || !prompt.trim()}
-          style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}
-        >
-          {loading ? '분석 중...' : '추천받기'}
-        </Button>
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--accent)"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm9.78-2.22a.75.75 0 0 0-1.06-1.06L7.25 7.69 5.78 6.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l3.5-3.5Z"/></svg>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>AI 외주 추천</span>
       </div>
 
-      {error && (
-        <Text color="danger.fg" style={{ display: 'block', marginTop: 10, fontSize: 14 }}>{error}</Text>
-      )}
+      <div className="card-body">
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16, marginTop: 0 }}>
+          보유 기술, 희망 예산, 원하는 작업 유형을 입력하면 적합한 프로젝트를 추천해드립니다.
+        </p>
 
-      {result && (
-        <div style={{ marginTop: 16 }}>
-          {result.summary && (
-            <div style={{
-              background: 'var(--code-bg)',
-              borderRadius: 8,
-              padding: '10px 14px',
-              marginBottom: 12,
-              fontSize: 14,
-            }}>
-              <Text>{result.summary}</Text>
-            </div>
-          )}
-
-          {result.recommendations.length === 0 ? (
-            <Text color="fg.muted" style={{ fontSize: 14 }}>현재 조건에 맞는 프로젝트가 없습니다.</Text>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {result.recommendations.map((rec, i) => (
-                <div
-                  key={rec.project_id}
-                  style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    padding: 12,
-                    background: 'var(--bg)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 22,
-                      height: 22,
-                      borderRadius: '50%',
-                      background: 'var(--accent)',
-                      color: 'white',
-                      fontSize: 12,
-                      fontWeight: 'bold',
-                      flexShrink: 0,
-                    }}>{i + 1}</span>
-                    <Text style={{ fontWeight: 'bold', fontSize: 15 }}>
-                      {rec.project?.title ?? rec.project_id}
-                    </Text>
-                  </div>
-                  {rec.project && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-                      {rec.project.skills.map(s => (
-                        <span key={s} style={{
-                          fontSize: 11,
-                          border: '1px solid var(--border)',
-                          borderRadius: 999,
-                          padding: '1px 7px',
-                        }}>{s}</span>
-                      ))}
-                      {rec.project.budget && (
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          예산: {rec.project.budget}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <Text color="fg.muted" style={{ fontSize: 13, display: 'block' }}>{rec.reason}</Text>
-                </div>
-              ))}
-            </div>
-          )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <textarea
+            className="form-textarea"
+            value={prompt}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
+            placeholder="예) React와 TypeScript를 잘 다루고, 예산은 100만원 이상이면 좋겠습니다. 프론트엔드 작업을 원해요."
+            rows={3}
+            style={{ flex: 1, minHeight: 80 }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={handleRecommend}
+            disabled={loading || !prompt.trim()}
+            style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}
+          >
+            {loading ? '분석 중...' : '추천받기'}
+          </button>
         </div>
-      )}
+
+        {error && (
+          <p style={{ marginTop: 12, fontSize: 13, color: 'var(--error)' }}>{error}</p>
+        )}
+
+        {result && (
+          <div style={{ marginTop: 20 }}>
+            {result.summary && (
+              <div style={{
+                background: 'var(--accent-light)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 16px',
+                marginBottom: 16,
+                fontSize: 14,
+                color: 'var(--text)',
+              }}>
+                {result.summary}
+              </div>
+            )}
+
+            {result.recommendations.length === 0 ? (
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>현재 조건에 맞는 프로젝트가 없습니다.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {result.recommendations.map((rec, i) => (
+                  <div
+                    key={rec.project_id}
+                    className="card"
+                    style={{ boxShadow: 'none' }}
+                  >
+                    <div className="card-body" style={{ padding: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: 'var(--accent)',
+                          color: 'white',
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          flexShrink: 0,
+                        }}>{i + 1}</span>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>
+                          {rec.project?.title ?? rec.project_id}
+                        </span>
+                      </div>
+                      {rec.project && (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                          {rec.project.skills.map(s => (
+                            <span key={s} className="chip">{s}</span>
+                          ))}
+                          {rec.project.budget && (
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center', marginLeft: 4 }}>
+                              예산: {rec.project.budget}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>{rec.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

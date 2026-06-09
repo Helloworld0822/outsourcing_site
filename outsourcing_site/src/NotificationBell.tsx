@@ -13,14 +13,6 @@ export type Notification = {
   inserted_at: string | null
 }
 
-const typeIcon: Record<string, string> = {
-  order: '📦',
-  application: '📩',
-  order_status: '🔄',
-  application_status: '🔄',
-  system: '🔔',
-}
-
 type Props = {
   token: string
   refreshToken: string
@@ -135,37 +127,31 @@ export default function NotificationBell({ token, refreshToken }: Props) {
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
+        className="btn btn-ghost"
         onClick={() => setOpen((prev) => !prev)}
-        style={{
-          position: 'relative',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: 20,
-          padding: '4px 8px',
-          color: 'inherit',
-          borderRadius: 6,
-        }}
+        style={{ position: 'relative', padding: '6px 8px', fontSize: 16 }}
       >
-        🔔
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 16a2 2 0 0 0 1.985-1.75H6.015A2 2 0 0 0 8 16ZM8 1.02C4.997 1.02 2.5 3.517 2.5 6.52V9l-1 1v.5h13V10l-1-1V6.52C13.5 3.517 11.003 1.02 8 1.02Z" />
+        </svg>
         {unreadCount > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              background: '#ef4444',
-              color: 'white',
-              borderRadius: '50%',
-              width: 18,
-              height: 18,
-              fontSize: 11,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-            }}
-          >
+          <span style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            background: 'var(--error)',
+            color: 'white',
+            borderRadius: '50%',
+            minWidth: 16,
+            height: 16,
+            fontSize: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 600,
+            padding: '0 4px',
+            lineHeight: 1,
+          }}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -179,36 +165,29 @@ export default function NotificationBell({ token, refreshToken }: Props) {
             top: '100%',
             right: 0,
             marginTop: 8,
-            width: 380,
-            maxHeight: 480,
+            width: 360,
+            maxHeight: 460,
             overflowY: 'auto',
-            background: 'var(--bg)',
+            background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 10,
-            boxShadow: 'var(--shadow)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)',
             zIndex: 1000,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '12px 14px',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ fontWeight: 700, fontSize: 15 }}>알림</span>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--border-light)',
+          }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>알림</span>
             {unreadCount > 0 && (
               <button
+                className="btn btn-ghost"
                 onClick={markAllAsRead}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
+                style={{ fontSize: 12, padding: '2px 8px' }}
               >
                 모두 읽음
               </button>
@@ -216,7 +195,9 @@ export default function NotificationBell({ token, refreshToken }: Props) {
           </div>
 
           {notifications.length === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>알림이 없습니다.</div>
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              알림이 없습니다.
+            </div>
           )}
 
           {notifications.map((n) => (
@@ -224,21 +205,27 @@ export default function NotificationBell({ token, refreshToken }: Props) {
               key={n.id}
               onClick={() => !n.is_read && markAsRead(n.id)}
               style={{
-                padding: '10px 14px',
-                borderBottom: '1px solid var(--border)',
+                padding: '10px 16px',
+                borderBottom: '1px solid var(--border-light)',
                 cursor: n.is_read ? 'default' : 'pointer',
-                background: n.is_read ? 'transparent' : 'var(--surface)',
+                background: n.is_read ? 'transparent' : 'var(--accent-light)',
                 display: 'flex',
                 gap: 10,
                 alignItems: 'flex-start',
+                transition: 'background 0.1s',
               }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>
-                {typeIcon[n.type] || '🔔'}
-              </span>
+              <div style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: n.is_read ? 'transparent' : 'var(--accent)',
+                marginTop: 6,
+                flexShrink: 0,
+              }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: n.is_read ? 'normal' : 700, fontSize: 14 }}>{n.title}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2, lineHeight: 1.4 }}>
+                <div style={{ fontWeight: n.is_read ? 400 : 600, fontSize: 13, lineHeight: 1.4 }}>{n.title}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2, lineHeight: 1.4 }}>
                   {n.message}
                 </div>
                 {n.inserted_at && (
@@ -257,12 +244,13 @@ export default function NotificationBell({ token, refreshToken }: Props) {
                   border: 'none',
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
-                  fontSize: 14,
+                  fontSize: 12,
                   padding: '2px 4px',
                   flexShrink: 0,
+                  lineHeight: 1,
                 }}
               >
-                ✕
+                &times;
               </button>
             </div>
           ))}

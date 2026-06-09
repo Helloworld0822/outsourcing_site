@@ -18,7 +18,6 @@ import ServiceOrderDialog from './ServiceOrderDialog'
 import NotificationBell from './NotificationBell'
 import ChatWidget from './ChatWidget'
 import VerifyEmail from './VerifyEmail'
-import heroImage from './assets/hero.png'
 import { API_BASE } from './apiBase'
 import {
   readJsonResponse,
@@ -93,119 +92,68 @@ function ProjectCard({ project, role, draft, onDraftChange, onApply, showApplica
   const clientName = project.client_name || '익명 클라이언트'
 
   return (
-    <div
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        padding: 12,
-        backgroundColor: 'var(--code-bg)',
-        marginBottom: 12,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <Heading as="h3" style={{ fontSize: 20, margin: 0 }}>
-            {project.title}
-          </Heading>
-          <Text color="fg.muted" style={{ marginTop: 8, display: 'inline-block' }}>
-            {project.description || '설명이 없습니다.'}
-          </Text>
-          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {project.skills.map((s) => (
-              <span
-                key={s}
-                style={{
-                  display: 'inline-block',
-                  fontSize: 12,
-                  border: '1px solid var(--border)',
-                  borderRadius: 999,
-                  padding: '2px 8px',
-                }}
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div style={{ textAlign: 'right', minWidth: 160 }}>
-          <Text style={{ fontWeight: 'bold' }}>{formatPrice(project.budget)}</Text>
-          <div style={{ marginTop: 8 }}>
-            <img
-              src={heroImage}
-              alt={`${project.title} 이미지`}
-              style={{
-                width: 140,
-                height: 90,
-                objectFit: 'cover',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Avatar alt={clientName} src="/favicon.svg" />
-        <Text>{clientName}</Text>
-      </div>
-
-      {role === 'freelancer' && !showApplications && (
-        <div style={{ marginTop: 12 }}>
-          <label>지원 메시지</label>
-          <textarea
-            value={draft}
-            onChange={(e) => onDraftChange(project.id, e.target.value)}
-            rows={3}
-            style={{
-              width: '100%',
-              marginTop: 6,
-              padding: 10,
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              background: 'var(--bg)',
-              color: 'inherit',
-              resize: 'vertical',
-            }}
-            placeholder="프로젝트에 지원할 내용을 적어주세요."
-          />
-          <div style={{ marginTop: 8 }}>
-            <Button variant="primary" onClick={() => onApply(project.id)}>
-              지원하기
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {showApplications && (
-        <div style={{ marginTop: 12 }}>
-          <Heading as="h4" style={{ fontSize: 16, marginBottom: 8 }}>
-            받은 지원
-          </Heading>
-          {(project.applications?.length || 0) === 0 ? (
-            <Text color="fg.muted">아직 지원이 없습니다.</Text>
-          ) : (
-            project.applications?.map((application) => (
-              <div
-                key={application.id}
-                style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  padding: 10,
-                  marginBottom: 8,
-                  background: 'var(--bg)',
-                }}
-              >
-                <Text style={{ fontWeight: 'bold' }}>{application.freelancer.name}</Text>
-                <Text color="fg.muted" style={{ display: 'block', marginTop: 4 }}>
-                  {application.freelancer.email}
-                </Text>
-                <Text style={{ display: 'block', marginTop: 8 }}>{application.message}</Text>
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="card-body">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>{project.title}</h3>
+            <p style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, margin: '6px 0 0' }}>
+              {project.description || '설명이 없습니다.'}
+            </p>
+            {project.skills.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {project.skills.map((s) => (
+                  <span key={s} className="chip">{s}</span>
+                ))}
               </div>
-            ))
-          )}
+            )}
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--accent)' }}>
+              {formatPrice(project.budget)}
+            </div>
+          </div>
         </div>
-      )}
+
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
+          <Avatar alt={clientName} src="/favicon.svg" size={24} />
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{clientName}</span>
+        </div>
+
+        {role === 'freelancer' && !showApplications && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
+            <label className="form-label">지원 메시지</label>
+            <textarea
+              className="form-textarea"
+              value={draft}
+              onChange={(e) => onDraftChange(project.id, e.target.value)}
+              rows={3}
+              placeholder="프로젝트에 지원할 내용을 적어주세요."
+              style={{ marginTop: 4 }}
+            />
+            <div style={{ marginTop: 8 }}>
+              <button className="btn btn-primary" onClick={() => onApply(project.id)}>지원하기</button>
+            </div>
+          </div>
+        )}
+
+        {showApplications && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
+            <div className="section-title">받은 지원</div>
+            {(project.applications?.length || 0) === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>아직 지원이 없습니다.</p>
+            ) : (
+              project.applications?.map((application) => (
+                <div key={application.id} style={{ padding: 10, borderRadius: 'var(--radius)', background: 'var(--surface-alt)', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{application.freelancer.name}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>{application.freelancer.email}</div>
+                  <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>{application.message}</div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -237,7 +185,6 @@ export default function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day'
   })
 
-  // URL에서 이메일 인증 토큰 확인
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
@@ -245,6 +192,7 @@ export default function App() {
       setVerifyEmailToken(token)
     }
   }, [])
+
   const [publicProjects, setPublicProjects] = useState<Project[]>([])
   const [clientProjects, setClientProjects] = useState<Project[]>([])
   const [freelancerApplications, setFreelancerApplications] = useState<Application[]>([])
@@ -275,6 +223,12 @@ export default function App() {
       clearPersistedSession()
     }
   }, [session])
+
+  useEffect(() => {
+    if (!statusMessage) return
+    const timer = setTimeout(() => setStatusMessage(null), 3000)
+    return () => clearTimeout(timer)
+  }, [statusMessage])
 
   const skills = useMemo(() => {
     const s = new Set<string>()
@@ -409,18 +363,10 @@ export default function App() {
   }, [apiRequest])
 
   useEffect(() => {
-    // Initial fetch of the public project list. The state updates happen
-    // asynchronously inside `loadPublicProjects`, so this is safe.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadPublicProjects()
   }, [loadPublicProjects])
 
   useEffect(() => {
-    // Resetting role-scoped state when the session changes is the
-    // correct behaviour here: each role reads from a different endpoint,
-    // and we don't want the previous user's projects/applications to
-    // flash in after a logout/login cycle.
-    /* eslint-disable react-hooks/set-state-in-effect */
     if (!session) {
       setClientProjects([])
       setFreelancerApplications([])
@@ -437,7 +383,6 @@ export default function App() {
       loadFreelancerApplications()
       setClientProjects([])
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [session, loadClientProjects, loadFreelancerApplications])
 
   function handleSession(sessionValue: Session) {
@@ -511,278 +456,279 @@ export default function App() {
   return (
     <ThemeProvider colorMode={colorMode}>
       <BaseStyles>
-        <div style={{ padding: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16 }}>
-            <div>
-              <Heading as="h1">Outsourcing Hub</Heading>
-              <Text color="fg.muted">프리랜서와 클라이언트를 연결하는 외주 중개 플랫폼 (Primer 스타일)</Text>
+        <div className="app-container">
+          {/* Header */}
+          <header className="app-header">
+            <div className="app-header-left">
+              <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 14 }}>O</div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em' }}>Outsourcing Hub</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.2 }}>외주 중개 플랫폼</div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {['projects', 'services'].map((v) => {
-                const active = view === v
-                const label = v === 'projects' ? '프로젝트' : '서비스'
-                return (
+            <div className="app-header-right">
+              <div className="tab-group">
+                {(['projects', 'services'] as const).map((v) => (
                   <button
                     key={v}
-                    onClick={() => setView(v as 'projects' | 'services')}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 6,
-                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                      background: active ? 'var(--accent)' : 'transparent',
-                      color: active ? 'white' : 'inherit',
-                      cursor: 'pointer',
-                      fontWeight: active ? 'bold' : 'normal',
-                      fontSize: 13,
-                    }}
+                    className={`tab-item ${view === v ? 'active' : ''}`}
+                    onClick={() => setView(v)}
                   >
-                    {label}
+                    {v === 'projects' ? '프로젝트' : '서비스'}
                   </button>
-                )
-              })}
-              <div style={{ width: 8 }} />
-              <Button
-                variant="invisible"
-                aria-pressed={colorMode === 'night'}
+                ))}
+              </div>
+              <button
+                className="btn btn-ghost"
                 onClick={() => setColorMode((prev) => (prev === 'day' ? 'night' : 'day'))}
+                style={{ fontSize: 13 }}
               >
-                {colorMode === 'day' ? '다크 모드' : '화이트 모드'}
-              </Button>
+                {colorMode === 'day' ? '🌙' : '☀️'}
+              </button>
               {session && (
                 <NotificationBell token={session.token} refreshToken={session.refresh_token} />
               )}
               {!isLoggedIn ? (
-                <Button variant="invisible" onClick={() => setShowLogin((s) => !s)}>
-                  {showLogin ? '로그인 닫기' : '로그인'}
-                </Button>
+                <>
+                  <button className="btn btn-ghost" onClick={() => setShowLogin((s) => !s)}>
+                    로그인
+                  </button>
+                  <button className="btn btn-primary" onClick={() => setShowSignup(true)}>
+                    회원가입
+                  </button>
+                </>
               ) : (
-                <Button variant="invisible" onClick={handleLogout}>
+                <button className="btn btn-ghost" onClick={handleLogout}>
                   로그아웃
-                </Button>
+                </button>
               )}
-              <Button variant="primary" onClick={() => setShowSignup(true)}>
-                회원가입
-              </Button>
             </div>
-          </div>
+          </header>
 
-          {statusMessage && (
-            <div style={{ marginBottom: 16 }}>
-              <Text>{statusMessage}</Text>
-            </div>
-          )}
-
+          {/* Login Panel */}
           {showLogin && !isLoggedIn && (
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 20 }}>
               <LoginPanel onLogin={handleSession} />
             </div>
           )}
 
+          {/* Signup Modal */}
           {showSignup && !isLoggedIn && (
-            <SignUpPanel
-              onClose={() => setShowSignup(false)}
-            />
+            <SignUpPanel onClose={() => setShowSignup(false)} />
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
-            <div>
-              <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, background: 'var(--bg)' }}>
-                <Heading as="h2">검색</Heading>
-                <div style={{ marginTop: 8 }}>
-                  <label>프로젝트 검색</label>
-                  <TextInput
-                    placeholder="검색어를 입력하세요 (예: React)"
-                    value={query}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-                  />
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <Heading as="h3">기술 필터</Heading>
-                  <div>
-                    {['(전체)', ...skills].map((s) => (
-                      <div key={s} style={{ padding: 6, cursor: 'pointer' }} onClick={() => setSkillFilter(s === '(전체)' ? null : s)}>
-                        {s} {skillFilter === s || (s === '(전체)' && skillFilter === null) ? '•' : ''}
+          {/* Main Content */}
+          <div className="app-main">
+            {/* Sidebar */}
+            <aside className="app-sidebar">
+              <div className="card">
+                <div className="card-body">
+                  <div className="section-title">🔍 검색</div>
+                  <div style={{ marginTop: 8 }}>
+                    <label className="form-label">프로젝트 검색</label>
+                    <input
+                      className="form-input"
+                      placeholder="검색어를 입력하세요"
+                      value={query}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <div className="section-title">기술 필터</div>
+                    <div style={{ marginTop: 4 }}>
+                      <div
+                        className={`skill-filter-item ${skillFilter === null ? 'active' : ''}`}
+                        onClick={() => setSkillFilter(null)}
+                      >
+                        전체
                       </div>
-                    ))}
+                      {skills.map((s) => (
+                        <div
+                          key={s}
+                          className={`skill-filter-item ${skillFilter === s ? 'active' : ''}`}
+                          onClick={() => setSkillFilter(s)}
+                        >
+                          {s}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </aside>
 
-            <div>
+            {/* Content */}
+            <main className="app-content">
               {view === 'projects' ? (
                 <>
-              <div style={{ borderRadius: 8, padding: 16, background: 'var(--code-bg)', marginBottom: 16 }}>
-                <Heading as="h2">프로젝트 찾기</Heading>
-                <Text color="fg.muted" style={{ marginTop: 8 }}>
-                  원하는 프로젝트를 찾고, 프리랜서는 바로 지원하고, 클라이언트는 새 프로젝트를 올릴 수 있습니다.
-                </Text>
-              </div>
-
-              {role === 'client' && (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginBottom: 16, background: 'var(--bg)' }}>
-                  <Heading as="h3">프로젝트 생성</Heading>
-                  <div style={{ marginTop: 8 }}>
-                    <div>제목</div>
-                    <TextInput
-                      value={projectForm.title}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, title: e.target.value }))}
-                    />
+                  {/* Hero */}
+                  <div className="hero-banner">
+                    <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>프로젝트 찾기</h2>
+                    <p style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13, margin: '6px 0 0' }}>
+                      원하는 프로젝트를 찾고 바로 지원하세요. 프리랜서와 클라이언트를 연결합니다.
+                    </p>
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <label>설명</label>
-                    <textarea
-                      value={projectForm.description}
-                      onChange={(e) => setProjectForm((prev) => ({ ...prev, description: e.target.value }))}
-                      rows={4}
-                      style={{
-                        width: '100%',
-                        marginTop: 6,
-                        padding: 10,
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg)',
-                        color: 'inherit',
-                        resize: 'vertical',
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
-                    <div>
-                      <label>기술 스택</label>
-                      <TextInput
-                        placeholder="React, TypeScript"
-                        value={projectForm.skills}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, skills: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label>예산</label>
-                      <TextInput
-                        placeholder="1,000,000원"
-                        value={projectForm.budget}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, budget: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <Button variant="primary" onClick={createProject} disabled={loadingPrivate}>
-                      프로젝트 생성
-                    </Button>
-                  </div>
-                </div>
-              )}
 
-              {role === 'client' && (
-                <div style={{ marginBottom: 16 }}>
-                  <Heading as="h3">내 프로젝트</Heading>
-                  {loadingPrivate ? <Text>불러오는 중...</Text> : clientProjects.length === 0 ? <Text>아직 생성한 프로젝트가 없습니다.</Text> : clientProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      role={role}
-                      draft=""
-                      onDraftChange={() => undefined}
-                      onApply={() => undefined}
-                      showApplications
-                    />
-                  ))}
-                </div>
-              )}
-
-              {role === 'freelancer' && (
-                <>
-                  <AiRecommend token={session?.token ?? null} />
-
-                  <div style={{ marginBottom: 16 }}>
-                    <Heading as="h3">내 수주 현황</Heading>
-                    {loadingPrivate ? (
-                      <Text>불러오는 중...</Text>
-                    ) : freelancerApplications.length === 0 ? (
-                      <Text color="fg.muted">아직 지원한 프로젝트가 없습니다.</Text>
-                    ) : (
-                      freelancerApplications.map((application) => {
-                        const statusLabel: Record<string, string> = {
-                          pending: '검토 중',
-                          accepted: '수주 확정',
-                          rejected: '미선정',
-                        }
-                        const statusColor: Record<string, string> = {
-                          pending: '#f59e0b',
-                          accepted: '#10b981',
-                          rejected: '#ef4444',
-                        }
-                        const st = application.status
-                        return (
-                          <div
-                            key={application.id}
-                            style={{
-                              border: '1px solid var(--border)',
-                              borderRadius: 8,
-                              padding: 12,
-                              marginTop: 8,
-                              background: 'var(--bg)',
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                              <Text style={{ fontWeight: 'bold', fontSize: 15 }}>
-                                {application.project?.title ?? '프로젝트'}
-                              </Text>
-                              <span style={{
-                                fontSize: 12,
-                                padding: '2px 8px',
-                                borderRadius: 999,
-                                border: `1px solid ${statusColor[st] ?? '#888'}`,
-                                color: statusColor[st] ?? '#888',
-                                whiteSpace: 'nowrap',
-                              }}>
-                                {statusLabel[st] ?? st}
-                              </span>
-                            </div>
-                            <Text color="fg.muted" style={{ display: 'block', marginTop: 6, fontSize: 14 }}>
-                              {application.message}
-                            </Text>
-                            {application.inserted_at && (
-                              <Text color="fg.muted" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
-                                지원일: {new Date(application.inserted_at).toLocaleDateString('ko-KR')}
-                              </Text>
-                            )}
+                  {/* Client: Create Project */}
+                  {role === 'client' && (
+                    <div className="card" style={{ marginBottom: 16 }}>
+                      <div className="card-header">
+                        <div className="section-title" style={{ margin: 0 }}>프로젝트 생성</div>
+                      </div>
+                      <div className="card-body">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <div>
+                            <label className="form-label">제목</label>
+                            <input
+                              className="form-input"
+                              value={projectForm.title}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, title: e.target.value }))}
+                              placeholder="프로젝트 제목을 입력하세요"
+                            />
                           </div>
-                        )
-                      })
+                          <div>
+                            <label className="form-label">설명</label>
+                            <textarea
+                              className="form-textarea"
+                              value={projectForm.description}
+                              onChange={(e) => setProjectForm((prev) => ({ ...prev, description: e.target.value }))}
+                              rows={4}
+                              placeholder="프로젝트 설명을 입력하세요"
+                            />
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                              <label className="form-label">기술 스택</label>
+                              <input
+                                className="form-input"
+                                placeholder="React, TypeScript"
+                                value={projectForm.skills}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, skills: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label">예산</label>
+                              <input
+                                className="form-input"
+                                placeholder="1,000,000원"
+                                value={projectForm.budget}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, budget: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <button className="btn btn-primary" onClick={createProject} disabled={loadingPrivate}>
+                              프로젝트 생성
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Client: My Projects */}
+                  {role === 'client' && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div className="section-title">📁 내 프로젝트</div>
+                      {loadingPrivate ? (
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>불러오는 중...</p>
+                      ) : clientProjects.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>아직 생성한 프로젝트가 없습니다.</p>
+                      ) : (
+                        clientProjects.map((project) => (
+                          <ProjectCard
+                            key={project.id}
+                            project={project}
+                            role={role}
+                            draft=""
+                            onDraftChange={() => undefined}
+                            onApply={() => undefined}
+                            showApplications
+                          />
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Freelancer: AI + My Applications */}
+                  {role === 'freelancer' && (
+                    <>
+                      <AiRecommend token={session?.token ?? null} />
+
+                      <div style={{ marginBottom: 20 }}>
+                        <div className="section-title">📋 내 수주 현황</div>
+                        {loadingPrivate ? (
+                          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>불러오는 중...</p>
+                        ) : freelancerApplications.length === 0 ? (
+                          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>아직 지원한 프로젝트가 없습니다.</p>
+                        ) : (
+                          freelancerApplications.map((application) => {
+                            const statusLabel: Record<string, string> = {
+                              pending: '검토 중',
+                              accepted: '수주 확정',
+                              rejected: '미선정',
+                            }
+                            const st = application.status
+                            return (
+                              <div key={application.id} className="card" style={{ marginBottom: 8 }}>
+                                <div className="card-body" style={{ padding: 14 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                                      {application.project?.title ?? '프로젝트'}
+                                    </div>
+                                    <span className={`status-badge status-${st}`}>
+                                      {statusLabel[st] ?? st}
+                                    </span>
+                                  </div>
+                                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
+                                    {application.message}
+                                  </p>
+                                  {application.inserted_at && (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 6 }}>
+                                      지원일: {new Date(application.inserted_at).toLocaleDateString('ko-KR')}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* All Projects */}
+                  <div>
+                    <div className="section-title">🌐 전체 프로젝트</div>
+                    {loadingPublic ? (
+                      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>불러오는 중...</p>
+                    ) : filteredProjects.length === 0 ? (
+                      <div className="empty-state">
+                        <div className="empty-state-icon">📭</div>
+                        <p>검색 결과가 없습니다.</p>
+                      </div>
+                    ) : (
+                      filteredProjects.map((project) => (
+                        <ProjectCard
+                          key={project.id}
+                          project={project}
+                          role={role}
+                          draft={applicationDrafts[project.id] || ''}
+                          onDraftChange={(projectId, value) =>
+                            setApplicationDrafts((prev) => ({
+                              ...prev,
+                              [projectId]: value,
+                            }))
+                          }
+                          onApply={applyToProject}
+                          showApplications={false}
+                        />
+                      ))
                     )}
                   </div>
                 </>
-              )}
-
-              <div>
-                <Heading as="h3">전체 프로젝트</Heading>
-                {loadingPublic ? (
-                  <Text>불러오는 중...</Text>
-                ) : filteredProjects.length === 0 ? (
-                  <Text>검색 결과가 없습니다.</Text>
-                ) : (
-                  filteredProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      role={role}
-                      draft={applicationDrafts[project.id] || ''}
-                      onDraftChange={(projectId, value) =>
-                        setApplicationDrafts((prev) => ({
-                          ...prev,
-                          [projectId]: value,
-                        }))
-                      }
-                      onApply={applyToProject}
-                      showApplications={false}
-                    />
-                  ))
-                )}
-              </div>
-                </>
               ) : (
+                /* Services View */
                 <>
                   {role === 'freelancer' && session && (
                     <FreelancerServiceForm
@@ -820,19 +766,21 @@ export default function App() {
                   onOrdered={() => setStatusMessage('주문이 접수되었습니다.')}
                 />
               )}
-            </div>
+            </main>
           </div>
 
-          <footer style={{ marginTop: 32, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+          {/* Footer */}
+          <footer style={{ borderTop: '1px solid var(--border)', padding: '20px 0', marginTop: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text color="fg.muted">© {new Date().getFullYear()} Outsourcing Hub</Text>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>© {new Date().getFullYear()} Outsourcing Hub</span>
               <div style={{ display: 'flex', gap: 4 }}>
-                <Button variant="invisible">회사정보</Button>
-                <Button variant="invisible">약관</Button>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }}>회사정보</button>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }}>약관</button>
               </div>
             </div>
           </footer>
 
+          {/* Chat Widget */}
           {session && (
             <ChatWidget
               token={session.token}
@@ -842,6 +790,7 @@ export default function App() {
             />
           )}
 
+          {/* Verify Email Modal */}
           {verifyEmailToken && (
             <VerifyEmail
               token={verifyEmailToken}
@@ -852,6 +801,11 @@ export default function App() {
                 setStatusMessage('이메일 인증이 완료되었습니다. 로그인해주세요.')
               }}
             />
+          )}
+
+          {/* Status Toast */}
+          {statusMessage && (
+            <div className="status-toast">{statusMessage}</div>
           )}
         </div>
       </BaseStyles>

@@ -1,6 +1,4 @@
 import { useState, type ChangeEvent } from 'react'
-import { TextInput, Button, Heading } from '@primer/react'
-import { EyeIcon, EyeClosedIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
 import { readJsonResponse, formatHttpError, setSession, type SessionUser, type Session } from './http'
 
@@ -77,61 +75,102 @@ export default function LoginPanel({ onLogin, onNeedVerification }: LoginPanelPr
   }
 
   return (
-    <div style={{border: '1px solid var(--border)', borderRadius: 12, padding: 16, width: 320, background: 'var(--surface)', boxShadow: 'var(--shadow)'}}>
-      <Heading as="h3">로그인</Heading>
-      <div style={{marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6}}>
-        <label>이메일</label>
-        <TextInput placeholder="이메일을 입력해주세요" value={email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
-      </div>
-      <div style={{marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6}}>
-        <label>비밀번호</label>
-        <TextInput
-          type={showPassword ? 'text' : 'password'}
-          placeholder="비밀번호를 입력해주세요"
-          value={password}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-          trailingAction={
-            <TextInput.Action
-              onClick={() => setShowPassword(v => !v)}
-              icon={showPassword ? EyeClosedIcon : EyeIcon}
-              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-            />
-          }
-        />
-      </div>
-      {error && (
-        <div style={{
-          marginTop: 8,
-          padding: '10px 14px',
-          borderRadius: 8,
-          background: isVerificationError ? 'rgba(59, 130, 246, 0.1)' : 'rgba(248, 81, 73, 0.1)',
-          border: `1px solid ${isVerificationError ? 'rgba(59, 130, 246, 0.3)' : 'rgba(248, 81, 73, 0.3)'}`,
-          color: isVerificationError ? '#2563eb' : '#cf222e',
-          fontSize: 14,
-          lineHeight: 1.5,
-        }}>
-          {error}
-          {isVerificationError && (
-            <div style={{marginTop: 8}}>
-              <Button
-                variant="default"
-                size="small"
-                onClick={resendVerification}
-                disabled={resendLoading}
-              >
-                {resendLoading ? '발송 중...' : '인증 메일 재발송'}
-              </Button>
-              {resendMessage && (
-                <p style={{marginTop: 6, fontSize: 12, color: resendMessage.includes('발송') ? '#10b981' : '#cf222e'}}>
-                  {resendMessage}
-                </p>
+    <div className="modal-overlay" onClick={() => {}}>
+      <div className="modal-card" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: 28 }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 18, marginBottom: 12 }}>O</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>로그인</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>계정에 로그인하세요</p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label className="form-label">이메일</label>
+              <input
+                className="form-input"
+                type="email"
+                placeholder="이메일을 입력하세요"
+                value={email}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label">비밀번호</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="비밀번호를 입력하세요"
+                  value={password}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    fontSize: 13,
+                    padding: '4px 6px',
+                  }}
+                >
+                  {showPassword ? '숨기기' : '보기'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div style={{
+              marginTop: 14,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: isVerificationError ? 'var(--info-light)' : 'var(--error-light)',
+              border: `1px solid ${isVerificationError ? 'rgba(37, 99, 235, 0.15)' : 'rgba(220, 38, 38, 0.15)'}`,
+              color: isVerificationError ? 'var(--info)' : 'var(--error)',
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}>
+              {error}
+              {isVerificationError && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 12, padding: '4px 10px' }}
+                    onClick={resendVerification}
+                    disabled={resendLoading}
+                  >
+                    {resendLoading ? '발송 중...' : '인증 메일 재발송'}
+                  </button>
+                  {resendMessage && (
+                    <p style={{ marginTop: 6, fontSize: 12, color: resendMessage.includes('발송') ? 'var(--success)' : 'var(--error)' }}>
+                      {resendMessage}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
+
+          <div style={{ marginTop: 20 }}>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px 0', fontSize: 14 }}
+              onClick={submitLogin}
+              disabled={loading}
+            >
+              {loading ? '로그인 중...' : '로그인'}
+            </button>
+          </div>
         </div>
-      )}
-      <div style={{marginTop: 12}}>
-        <Button variant="primary" onClick={submitLogin} disabled={loading}>{loading ? '로그인...' : '로그인'}</Button>
       </div>
     </div>
   )
