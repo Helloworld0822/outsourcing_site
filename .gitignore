@@ -1,0 +1,8 @@
+.env
+*.log
+node_modules/
+_deps/
+_build/
+deps/
+*.swp
+.DS_Store

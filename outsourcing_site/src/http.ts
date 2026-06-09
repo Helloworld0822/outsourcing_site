@@ -101,3 +101,15 @@ function translateError(msg: string): string {
   // 번역 불가능한 경우 원본 반환
   return msg
 }
+
+/**
+ * 가격 문자열을 한국어 형식으로 변환합니다.
+ * "₩500,000" → "500,000원", "500000" → "500,000원", "500,000원" → "500,000원"
+ */
+export function formatPrice(price: string | number | null | undefined): string {
+  if (price == null || price === '') return '가격 미정'
+  const str = String(price).trim()
+  const numeric = str.replace(/[^0-9]/g, '')
+  if (!numeric) return str
+  return `${Number(numeric).toLocaleString('ko-KR')}원`
+}

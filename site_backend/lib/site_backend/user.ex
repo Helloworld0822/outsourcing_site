@@ -95,11 +95,7 @@ defmodule SiteBackend.User do
 
   def verify_email(user) do
     user
-    |> change(%{
-      email_verified: true,
-      email_verification_token: nil,
-      email_verification_sent_at: nil
-    })
+    |> change(%{email_verified: true})
   end
 
   defp put_pass_hash(changeset) do

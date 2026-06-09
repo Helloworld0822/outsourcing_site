@@ -168,7 +168,7 @@ export default function FreelancerServiceForm({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label>가격 *</label>
           <TextInput
-            placeholder="₩500,000"
+            placeholder="500,000원"
             value={price}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)}
           />

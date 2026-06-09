@@ -20,7 +20,7 @@ import ChatWidget from './ChatWidget'
 import VerifyEmail from './VerifyEmail'
 import heroImage from './assets/hero.png'
 import { API_BASE } from './apiBase'
-import { readJsonResponse, formatError } from './http'
+import { readJsonResponse, formatError, formatPrice } from './http'
 
 type AccountType = 'client' | 'freelancer'
 
@@ -123,7 +123,7 @@ function ProjectCard({ project, role, draft, onDraftChange, onApply, showApplica
           </div>
         </div>
         <div style={{ textAlign: 'right', minWidth: 160 }}>
-          <Text style={{ fontWeight: 'bold' }}>{project.budget || '예산 미정'}</Text>
+          <Text style={{ fontWeight: 'bold' }}>{formatPrice(project.budget)}</Text>
           <div style={{ marginTop: 8 }}>
             <img
               src={heroImage}
@@ -602,7 +602,7 @@ export default function App() {
                     <div>
                       <label>예산</label>
                       <TextInput
-                        placeholder="₩1,000,000"
+                        placeholder="1,000,000원"
                         value={projectForm.budget}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectForm((prev) => ({ ...prev, budget: e.target.value }))}
                       />

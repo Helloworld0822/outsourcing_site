@@ -806,11 +806,12 @@ defmodule SiteBackend.Router do
       token when is_binary(token) and byte_size(token) > 0 ->
         case Repo.get_by(User, email_verification_token: token) do
           nil ->
-            json_error(conn, 400, "유효하지 않거나 만료된 인증 링크입니다.")
+            # 토큰이 없거나 이미 사용됨. 이미 인증된 사용자인지 확인 불가 (토큰만으로는 이메일 모름)
+            json_error(conn, 400, "유효하지 않거나 만료된 인증 링크입니다. 이미 인증을 완료하셨다면 로그인해주세요.")
 
           user ->
             if user.email_verified do
-              send_json(conn, %{message: "이미 인증된 이메일입니다."})
+              send_json(conn, %{message: "이미 인증된 이메일입니다. 로그인해주세요."})
             else
               user
               |> User.verify_email()
@@ -825,6 +826,9 @@ defmodule SiteBackend.Router do
               end
             end
         end
+
+      _ ->
+        json_error(conn, 400, "인증 토큰이 필요합니다.")
     end
   end
 

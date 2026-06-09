@@ -2,7 +2,7 @@ import { useState, useEffect, type ChangeEvent } from 'react'
 import { Button, Heading, Text, TextInput } from '@primer/react'
 import { HeartIcon, SearchIcon } from '@primer/octicons-react'
 import { API_BASE } from './apiBase'
-import { readJsonResponse, formatError } from './http'
+import { readJsonResponse, formatError, formatPrice } from './http'
 import type { FreelancerService } from './FreelancerServiceForm'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -167,7 +167,7 @@ export default function FreelancerServiceList({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
                 <div>
-                  <Text style={{ fontWeight: 'bold', fontSize: 16, display: 'block' }}>{s.price}</Text>
+                  <Text style={{ fontWeight: 'bold', fontSize: 16, display: 'block' }}>{formatPrice(s.price)}</Text>
                   <Text color="fg.muted" style={{ fontSize: 11, display: 'block' }}>{s.delivery_days}일 이내</Text>
                 </div>
                 {token ? (
