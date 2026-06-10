@@ -52,6 +52,7 @@ defmodule SiteBackend.Router do
   alias SiteBackend.Services
   alias SiteBackend.Notifications
   alias SiteBackend.Chat
+  alias SiteBackend.Profiles
 
   plug :match
   plug Plug.Parsers, parsers: [:json], json_decoder: Jason, pass: ["*/*"]
@@ -633,6 +634,58 @@ defmodule SiteBackend.Router do
       _ ->
         json_error(conn, 400, "prompt must be a non-empty string")
     end
+  end
+
+  # ── Profiles ──────────────────────────────────────────────────────
+
+  get "/profile" do
+    case current_user(conn) do
+      {:ok, user} ->
+        case Profiles.get_profile(user.id) do
+          {:ok, profile} ->
+            send_json(conn, %{data: profile})
+
+          {:error, :not_found} ->
+            json_error(conn, 404, "프로필을 찾을 수 없습니다.")
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  put "/profile" do
+    case current_user(conn) do
+      {:ok, user} ->
+        case Profiles.upsert_profile(user.id, conn.body_params) do
+          {:ok, profile} ->
+            send_json(conn, %{data: profile})
+
+          {:error, changeset} ->
+            json_error(conn, 400, Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end))
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  get "/profiles/:user_id" do
+    case Profiles.get_public_profile(conn.path_params["user_id"]) do
+      {:ok, profile} ->
+        send_json(conn, %{data: profile})
+
+      {:error, :not_found} ->
+        json_error(conn, 404, "프로필을 찾을 수 없습니다.")
+
+      {:error, :forbidden} ->
+        json_error(conn, 403, "비공개 프로필입니다.")
+    end
+  end
+
+  get "/freelancers" do
+    profiles = Profiles.list_freelancer_profiles(conn.query_params)
+    send_json(conn, %{data: profiles})
   end
 
   # ── Login History (inline) ────────────────────────────────────────

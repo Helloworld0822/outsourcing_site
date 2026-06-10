@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '../api/apiBase'
+import { readJsonResponse } from '../api/http'
 
 type VerifyEmailProps = {
   token: string
@@ -14,13 +15,13 @@ export default function VerifyEmail({ token, onVerified }: VerifyEmailProps) {
     async function verify() {
       try {
         const res = await fetch(`${API_BASE}/api/verify-email/${token}`)
-        const body = await res.json()
-        if (res.ok) {
+        const body = await readJsonResponse<{ message?: string; error?: string }>(res)
+        if (res.ok && body) {
           setStatus('success')
           setMessage(body.message || '이메일 인증이 완료되었습니다.')
         } else {
           setStatus('error')
-          setMessage(body.error || '인증에 실패했습니다.')
+          setMessage(body?.error || '인증에 실패했습니다.')
         }
       } catch {
         setStatus('error')

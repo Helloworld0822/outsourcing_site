@@ -17,6 +17,7 @@ defmodule SiteBackend.User do
     field :refresh_token_hash, :string
     field :refresh_token_expires_at, :naive_datetime
     has_many :logins, SiteBackend.Login
+    has_one :profile, SiteBackend.UserProfile
 
     timestamps()
   end

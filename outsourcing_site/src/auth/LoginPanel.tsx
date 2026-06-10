@@ -6,10 +6,9 @@ import type { SessionUser, Session } from '../api/types'
 type LoginPanelProps = {
   onLogin: (session: Session) => void
   onClose?: () => void
-  onNeedVerification?: (email: string) => void
 }
 
-export default function LoginPanel({ onLogin, onClose, onNeedVerification }: LoginPanelProps) {
+export default function LoginPanel({ onLogin, onClose }: LoginPanelProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)

@@ -2,11 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'rea
 import {
   ThemeProvider,
   BaseStyles,
-  Heading,
-  Text,
-  Button,
-  TextInput,
-  Avatar,
 } from '@primer/react'
 import './App.css'
 import LoginPanel from './auth/LoginPanel'
@@ -20,21 +15,22 @@ import NotificationBell from './notifications/NotificationBell'
 import ChatWidget from './chat/ChatWidget'
 import VerifyEmail from './auth/VerifyEmail'
 import { API_BASE } from './api/apiBase'
+import ProfilePage from './profile/ProfilePage'
+import FreelancerList from './profile/FreelancerList'
+import PublicProfileView from './profile/PublicProfileView'
 import ProjectCard from './projects/ProjectCard'
 import type { Project, Application, ProjectForm } from './projects/types'
 import { splitSkills } from './projects/types'
 import {
   readJsonResponse,
-  formatError,
   formatHttpError,
-  formatPrice,
   getStoredToken,
   getStoredRefreshToken,
   getStoredUser,
   setSession as persistSession,
   clearSession as clearPersistedSession,
 } from './api/http'
-import type { AccountType, Session, SessionUser } from './api/types'
+import type { Session } from './api/types'
 
 export default function App() {
   const [query, setQuery] = useState('')
@@ -42,8 +38,9 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false)
   const [showSignup, setShowSignup] = useState(false)
   const [verifyEmailToken, setVerifyEmailToken] = useState<string | null>(null)
-  const [view, setView] = useState<'projects' | 'services' | 'ai'>('projects')
+  const [view, setView] = useState<'projects' | 'services' | 'ai' | 'profile' | 'freelancers'>('projects')
   const [servicesRefreshKey, setServicesRefreshKey] = useState(0)
+  const [selectedFreelancerId, setSelectedFreelancerId] = useState<string | null>(null)
   const [orderTarget, setOrderTarget] = useState<FreelancerService | null>(null)
   const [session, setSession] = useState<Session | null>(() => {
     const token = getStoredToken()
@@ -346,13 +343,13 @@ export default function App() {
             </div>
             <div className="app-header-right">
               <div className="tab-group">
-                {(['projects', 'services', 'ai'] as const).map((v) => (
+                {(['projects', 'services', 'freelancers', 'ai'] as const).map((v) => (
                   <button
                     key={v}
                     className={`tab-item ${view === v ? 'active' : ''}`}
                     onClick={() => setView(v)}
                   >
-                    {v === 'projects' ? '프로젝트' : v === 'services' ? '서비스' : 'AI 추천'}
+                    {v === 'projects' ? '프로젝트' : v === 'services' ? '서비스' : v === 'freelancers' ? '프리랜서' : 'AI 추천'}
                   </button>
                 ))}
               </div>
@@ -366,7 +363,21 @@ export default function App() {
               {session && (
                 <NotificationBell token={session.token} refreshToken={session.refresh_token} />
               )}
-              {!isLoggedIn ? (
+              {session ? (
+                <>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setView('profile')}
+                    style={{ fontSize: 13 }}
+                    title="내 프로필"
+                  >
+                    👤 {session.user.name}
+                  </button>
+                  <button className="btn btn-ghost" onClick={handleLogout}>
+                    로그아웃
+                  </button>
+                </>
+              ) : (
                 <>
                   <button className="btn btn-ghost" onClick={() => setShowLogin((s) => !s)}>
                     로그인
@@ -375,10 +386,6 @@ export default function App() {
                     회원가입
                   </button>
                 </>
-              ) : (
-                <button className="btn btn-ghost" onClick={handleLogout}>
-                  로그아웃
-                </button>
               )}
             </div>
           </header>
@@ -632,6 +639,39 @@ export default function App() {
                     }}
                   />
                 </>
+              ) : view === 'freelancers' ? (
+                /* Freelancers View */
+                <>
+                  <div className="hero-banner">
+                    <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>프리랜서 찾기</h2>
+                    <p style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13, margin: '6px 0 0' }}>
+                      원하는 기술을 보유한 프리랜서를 찾아 바로 연락해보세요.
+                    </p>
+                  </div>
+                  {selectedFreelancerId ? (
+                    <PublicProfileView
+                      userId={selectedFreelancerId}
+                      token={session?.token ?? null}
+                      onBack={() => setSelectedFreelancerId(null)}
+                      onContactFreelancer={(_id) => {
+                        if (!session) { setShowLogin(true); return }
+                        // TODO: open chat
+                        setStatusMessage(`프리랜서에게 채팅을 요청했습니다.`)
+                      }}
+                    />
+                  ) : (
+                    <FreelancerList
+                      token={session?.token ?? null}
+                      onSelectFreelancer={(id) => setSelectedFreelancerId(id)}
+                    />
+                  )}
+                </>
+              ) : view === 'profile' && session ? (
+                /* My Profile View */
+                <ProfilePage
+                  token={session.token}
+                  onClose={() => setView('projects')}
+                />
               ) : (
                 /* AI View */
                 <AiRecommend token={session?.token ?? null} />

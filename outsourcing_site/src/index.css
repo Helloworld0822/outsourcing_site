@@ -700,3 +700,70 @@ html[data-theme='night'] .chat-message.theirs .chat-bubble {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- Hero Banner --- */
+.hero-banner {
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--surface) 100%);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+/* --- Status Toast --- */
+.status-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--surface);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 9998;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.2s ease;
+  white-space: nowrap;
+}
+
+/* --- Skill filter items (sidebar) --- */
+.skill-filter-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--border-light);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  margin: 2px;
+  transition: all 0.15s ease;
+}
+
+.skill-filter-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: transparent;
+}
+
+.skill-filter-item.active {
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+}
+
+/* --- Empty State --- */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
