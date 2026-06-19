@@ -19,4 +19,7 @@ EXPOSE 5173
 # again here for clarity. The trailing "0.0.0.0" tells Vite to listen on
 # all interfaces, which is required to be reachable from the docker
 # network (and from the host when 5173 is published).
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+#
+# docker-compose mounts an empty named volume at /app/node_modules which
+# hides the deps installed above. Ensure deps are present at boot.
+CMD ["sh", "-c", "if [ ! -d node_modules/@tailwindcss ] || [ ! -d node_modules/vite ]; then echo '[frontend] installing deps into named volume...'; npm ci; fi; npm run dev -- --host 0.0.0.0"]
