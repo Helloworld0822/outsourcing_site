@@ -1,0 +1,103 @@
+# Production stack. Brings up the API release + a managed Postgres +
+# nginx. Assumes the frontend is built once and served by nginx
+# directly (no Vite dev server). Mount secrets as files or pass via env
+# from a secrets manager – never commit them to the repo.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Required env (provide via a .env file or `--env-file`):
+#   JWT_SECRET, SECRET_KEY_BASE, OPENAI_API_KEY, RESEND_API_KEY,
+#   EMAIL_FROM, CORS_ALLOWED_ORIGINS, DB_PASSWORD
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-outsourcing}
+      POSTGRES_USER: ${DB_USER:-crewlink}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in prod}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # No init.sql bind mount in prod – migrations run from the release.
+
+  backend:
+    build:
+      context: ./site_backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    image: crewlink/backend:${TAG:-latest}
+    environment:
+      MIX_ENV: prod
+      PORT: 4000
+      DB_NAME: ${DB_NAME:-outsourcing}
+      DB_USER: ${DB_USER:-crewlink}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in prod}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_SSL: ${DB_SSL:-true}
+      DB_CACERTFILE: ${DB_CACERTFILE:-}
+      DB_LOG_LEVEL: false
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in prod}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required in prod}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@crewlink.io}
+      EMAIL_VERIFICATION_BASE_URL: ${EMAIL_VERIFICATION_BASE_URL:-https://crewlink.io}
+      SHUTDOWN_TIMEOUT: "30000"
+    expose:
+      - "4000"
+      - "4001"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["start"]
+    # Persistent upload volume.
+    volumes:
+      - backend-uploads:/app/priv/static/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/api/projects"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 30s
+
+  # Frontend is built ahead of time and the dist/ is served directly
+  # by nginx. Build it locally with `npm run build` inside
+  # outsourcing_site/.
+  nginx:
+    image: nginx:1.25
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./outsourcing_site/dist:/usr/share/nginx/html:ro
+      - ${SSL_CERT_PATH:-./nginx/certs/fullchain.pem}:/etc/nginx/ssl/fullchain.pem:ro
+      - ${SSL_KEY_PATH:-./nginx/certs/privkey.pem}:/etc/nginx/ssl/privkey.pem:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "https://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db-data:
+  backend-uploads:
