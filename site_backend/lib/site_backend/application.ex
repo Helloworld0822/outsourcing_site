@@ -61,22 +61,25 @@ defmodule SiteBackend.Application do
     state
   end
 
-  # In production, refuse to start with default/weak secrets.
+  # In production-like environments, refuse to start with default/weak secrets.
   defp validate_security_config! do
     jwt_secret = System.get_env("JWT_SECRET")
     secret_key_base = System.get_env("SECRET_KEY_BASE")
     env = System.get_env("MIX_ENV") || "dev"
 
-    if env == "prod" do
+    if env in ["prod", "staging"] do
       cond do
         is_nil(jwt_secret) or jwt_secret == "" or jwt_secret == "dev_jwt_secret" ->
-          raise "JWT_SECRET must be set to a strong value in production"
+          raise "JWT_SECRET must be set to a strong value in #{env}"
 
         byte_size(jwt_secret) < 32 ->
-          raise "JWT_SECRET must be at least 32 characters in production"
+          raise "JWT_SECRET must be at least 32 characters in #{env}"
 
         is_nil(secret_key_base) or secret_key_base == "" or secret_key_base == "dev_secret" ->
-          raise "SECRET_KEY_BASE must be set to a strong value in production"
+          raise "SECRET_KEY_BASE must be set to a strong value in #{env}"
+
+        byte_size(secret_key_base) < 32 ->
+          raise "SECRET_KEY_BASE must be at least 32 characters in #{env}"
 
         true ->
           :ok
@@ -84,3 +87,4 @@ defmodule SiteBackend.Application do
     end
   end
 end
+

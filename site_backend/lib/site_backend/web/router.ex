@@ -150,11 +150,13 @@ defmodule SiteBackend.Router do
   end
 
   post "/refresh" do
-    %{"refresh_token" => refresh_token} = conn.body_params
-
-    case Accounts.refresh(refresh_token) do
-      {:ok, data} ->
-        send_json(conn, data)
+    with refresh_token when is_binary(refresh_token) <-
+           Map.get(conn.body_params, "refresh_token"),
+         {:ok, data} <- Accounts.refresh(refresh_token) do
+      send_json(conn, data)
+    else
+      nil ->
+        json_error(conn, 400, "refresh_token is required")
 
       {:error, status, message} ->
         json_error(conn, status, message)
@@ -173,11 +175,12 @@ defmodule SiteBackend.Router do
   end
 
   post "/verify-email" do
-    %{"email" => email} = conn.body_params
-
-    case Accounts.request_verification(email, conn) do
-      {:ok, message} ->
-        send_json(conn, %{message: message})
+    with email when is_binary(email) <- Map.get(conn.body_params, "email"),
+         {:ok, message} <- Accounts.request_verification(email, conn) do
+      send_json(conn, %{message: message})
+    else
+      nil ->
+        json_error(conn, 400, "email is required")
 
       {:error, status, message} ->
         json_error(conn, status, message)
@@ -201,7 +204,7 @@ defmodule SiteBackend.Router do
   @max_file_size 5 * 1024 * 1024
 
   post "/upload" do
-    case authorize_roles(conn, [:client, :freelancer]) do
+    case authorize_roles(conn, [:client, :freelancer]) |> require_verified() do
       {:ok, _user} ->
         upload = conn.body_params["file"]
 
@@ -281,7 +284,7 @@ defmodule SiteBackend.Router do
   end
 
   post "/projects" do
-    case authorize_roles(conn, [:client]) do
+    case authorize_roles(conn, [:client]) |> require_verified() do
       {:ok, user} ->
         params =
           conn.body_params
@@ -313,13 +316,15 @@ defmodule SiteBackend.Router do
   end
 
   post "/projects/:id/applications" do
-    case authorize_roles(conn, [:freelancer]) do
+    case authorize_roles(conn, [:freelancer]) |> require_verified() do
       {:ok, user} ->
-        %{"message" => message} = conn.body_params
-
-        case Projects.apply_to_project(conn.path_params["id"], user.id, message) do
-          {:ok, application} ->
-            send_json(conn, %{data: Projects.application_to_map(application)}, 201)
+        with message when is_binary(message) <- Map.get(conn.body_params, "message"),
+             {:ok, application} <-
+               Projects.apply_to_project(conn.path_params["id"], user.id, message) do
+          send_json(conn, %{data: Projects.application_to_map(application)}, 201)
+        else
+          nil ->
+            json_error(conn, 400, "message is required")
 
           {:error, :not_found} ->
             json_error(conn, 404, "project not found")
@@ -363,7 +368,7 @@ defmodule SiteBackend.Router do
   end
 
   post "/freelancer/services" do
-    case authorize_roles(conn, [:freelancer]) do
+    case authorize_roles(conn, [:freelancer]) |> require_verified() do
       {:ok, user} ->
         params = Map.put(conn.body_params, "freelancer_id", user.id)
 
@@ -381,7 +386,7 @@ defmodule SiteBackend.Router do
   end
 
   patch "/freelancer/services/:id" do
-    case authorize_roles(conn, [:freelancer]) do
+    case authorize_roles(conn, [:freelancer]) |> require_verified() do
       {:ok, user} ->
         case Services.update_service(conn.path_params["id"], user.id, conn.body_params) do
           {:ok, service} ->
@@ -403,7 +408,7 @@ defmodule SiteBackend.Router do
   end
 
   delete "/freelancer/services/:id" do
-    case authorize_roles(conn, [:freelancer]) do
+    case authorize_roles(conn, [:freelancer]) |> require_verified() do
       {:ok, user} ->
         case Services.delete_service(conn.path_params["id"], user.id) do
           {:ok, :deleted} ->
@@ -425,7 +430,7 @@ defmodule SiteBackend.Router do
   end
 
   post "/freelancer/services/:id/orders" do
-    case authorize_roles(conn, [:client]) do
+    case authorize_roles(conn, [:client]) |> require_verified() do
       {:ok, user} ->
         requirements = Map.get(conn.body_params, "requirements")
 
@@ -532,14 +537,17 @@ defmodule SiteBackend.Router do
   # ── Chat ──────────────────────────────────────────────────────────
 
   post "/chat/rooms" do
-    case current_user(conn) do
+    case current_user(conn) |> require_verified() do
       {:ok, user} ->
-        %{"freelancer_id" => freelancer_id} = conn.body_params
-        service_order_id = Map.get(conn.body_params, "service_order_id")
-
-        case Chat.get_or_create_room(user.id, freelancer_id, service_order_id) do
-          {:ok, room} ->
-            send_json(conn, %{data: room})
+        with freelancer_id when is_binary(freelancer_id) <-
+               Map.get(conn.body_params, "freelancer_id"),
+             service_order_id <- Map.get(conn.body_params, "service_order_id"),
+             {:ok, room} <-
+               Chat.get_or_create_room(user.id, freelancer_id, service_order_id) do
+          send_json(conn, %{data: room})
+        else
+          nil ->
+            json_error(conn, 400, "freelancer_id is required")
 
           {:error, changeset} ->
             json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
@@ -581,13 +589,14 @@ defmodule SiteBackend.Router do
   end
 
   post "/chat/rooms/:id/messages" do
-    case current_user(conn) do
+    case current_user(conn) |> require_verified() do
       {:ok, user} ->
-        %{"content" => content} = conn.body_params
-
-        case Chat.send_message(user.id, conn.path_params["id"], content) do
-          {:ok, msg_map} ->
-            send_json(conn, %{data: msg_map}, 201)
+        with content when is_binary(content) <- Map.get(conn.body_params, "content"),
+             {:ok, msg_map} <- Chat.send_message(user.id, conn.path_params["id"], content) do
+          send_json(conn, %{data: msg_map}, 201)
+        else
+          nil ->
+            json_error(conn, 400, "content is required")
 
           {:error, :not_found} ->
             json_error(conn, 404, "chat room not found")
@@ -607,111 +616,107 @@ defmodule SiteBackend.Router do
   # ── AI Recommendation (inline) ────────────────────────────────────
 
   post "/ai/recommend" do
-    case Map.get(conn.body_params, "prompt") do
-      nil ->
-        json_error(conn, 400, "prompt is required")
+    with prompt when is_binary(prompt) and byte_size(prompt) > 0 <-
+           Map.get(conn.body_params, "prompt") do
+      api_key = System.get_env("OPENAI_API_KEY")
 
-      prompt when is_binary(prompt) and byte_size(prompt) > 0 ->
-        api_key = System.get_env("OPENAI_API_KEY")
+      if is_nil(api_key) or api_key == "" do
+        json_error(conn, 503, "AI 기능이 설정되지 않았습니다. OPENAI_API_KEY 환경변수를 확인해주세요.")
+      else
+        projects =
+          from(p in SiteBackend.Project, order_by: [desc: p.inserted_at], limit: 50)
+          |> SiteBackend.Repo.all()
 
-        if is_nil(api_key) or api_key == "" do
-          json_error(conn, 503, "AI 기능이 설정되지 않았습니다. OPENAI_API_KEY 환경변수를 확인해주세요.")
-        else
-          projects =
-            from(p in SiteBackend.Project, order_by: [desc: p.inserted_at], limit: 50)
-            |> SiteBackend.Repo.all()
+        projects_text =
+          projects
+          |> Enum.with_index(1)
+          |> Enum.map(fn {p, i} ->
+            skills = Enum.join(p.skills, ", ")
+            budget = p.budget || "미정"
+            "#{i}. [ID: #{p.id}] #{p.title} - #{p.description || "설명 없음"} (기술: #{skills}, 예산: #{budget})"
+          end)
+          |> Enum.join("\n")
 
-          projects_text =
-            projects
-            |> Enum.with_index(1)
-            |> Enum.map(fn {p, i} ->
-              skills = Enum.join(p.skills, ", ")
-              budget = p.budget || "미정"
-              "#{i}. [ID: #{p.id}] #{p.title} - #{p.description || "설명 없음"} (기술: #{skills}, 예산: #{budget})"
-            end)
-            |> Enum.join("\n")
+        system_prompt = """
+        당신은 외주 플랫폼의 AI 어시스턴트입니다. 사용자의 기술 스택과 조건을 분석하여 현재 등록된 프로젝트 중 가장 적합한 것을 추천합니다.
+        반드시 다음 JSON 형식으로만 응답하세요 (코드블록 없이 순수 JSON):
+        {
+          "recommendations": [
+            {"project_id": "UUID", "reason": "추천 이유 (2-3문장)"},
+            ...
+          ],
+          "summary": "전체 요약 (1-2문장)"
+        }
+        최대 3개까지 추천하세요. 적합한 프로젝트가 없으면 recommendations를 빈 배열로 반환하세요.
+        """
 
-          system_prompt = """
-          당신은 외주 플랫폼의 AI 어시스턴트입니다. 사용자의 기술 스택과 조건을 분석하여 현재 등록된 프로젝트 중 가장 적합한 것을 추천합니다.
-          반드시 다음 JSON 형식으로만 응답하세요 (코드블록 없이 순수 JSON):
-          {
-            "recommendations": [
-              {"project_id": "UUID", "reason": "추천 이유 (2-3문장)"},
-              ...
+        user_message = "현재 등록된 프로젝트 목록:\n#{projects_text}\n\n사용자 요청: #{prompt}"
+
+        request_body = Jason.encode!(%{
+          model: "gpt-4o-mini",
+          messages: [
+            %{role: "system", content: system_prompt},
+            %{role: "user", content: user_message}
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        })
+
+        req =
+          Finch.build(
+            :post,
+            "https://api.openai.com/v1/chat/completions",
+            [
+              {"content-type", "application/json"},
+              {"authorization", "Bearer #{api_key}"}
             ],
-            "summary": "전체 요약 (1-2문장)"
-          }
-          최대 3개까지 추천하세요. 적합한 프로젝트가 없으면 recommendations를 빈 배열로 반환하세요.
-          """
+            request_body
+          )
 
-          user_message = "현재 등록된 프로젝트 목록:\n#{projects_text}\n\n사용자 요청: #{prompt}"
-
-          request_body = Jason.encode!(%{
-            model: "gpt-4o-mini",
-            messages: [
-              %{role: "system", content: system_prompt},
-              %{role: "user", content: user_message}
-            ],
-            temperature: 0.3,
-            max_tokens: 1000
-          })
-
-          req =
-            Finch.build(
-              :post,
-              "https://api.openai.com/v1/chat/completions",
-              [
-                {"content-type", "application/json"},
-                {"authorization", "Bearer #{api_key}"}
-              ],
-              request_body
-            )
-
-          case Finch.request(req, SiteBackend.Finch, receive_timeout: 30_000) do
-            {:ok, %Finch.Response{status: 200, body: body}} ->
-              case Jason.decode(body) do
-                {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
-                  case Jason.decode(content) do
-                    {:ok, result} ->
-                      enriched =
-                        Map.update(result, "recommendations", [], fn recs ->
-                          Enum.map(recs, fn rec ->
-                            project = Enum.find(projects, fn p -> p.id == rec["project_id"] end)
-                            Map.put(rec, "project", if(project, do: Projects.project_to_map(project), else: nil))
-                          end)
-                          |> Enum.filter(fn rec -> rec["project"] != nil end)
+        case Finch.request(req, SiteBackend.Finch, receive_timeout: 30_000) do
+          {:ok, %Finch.Response{status: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
+                case Jason.decode(content) do
+                  {:ok, result} ->
+                    enriched =
+                      Map.update(result, "recommendations", [], fn recs ->
+                        Enum.map(recs, fn rec ->
+                          project = Enum.find(projects, fn p -> p.id == rec["project_id"] end)
+                          Map.put(rec, "project", if(project, do: Projects.project_to_map(project), else: nil))
                         end)
+                        |> Enum.filter(fn rec -> rec["project"] != nil end)
+                      end)
 
-                      send_json(conn, enriched)
+                    send_json(conn, enriched)
 
-                    {:error, _} ->
-                      json_error(conn, 502, "AI 응답을 파싱할 수 없습니다.")
-                  end
-
-                {:ok, %{"error" => %{"message" => msg}}} ->
-                  json_error(conn, 502, "OpenAI 오류: #{msg}")
-
-                _ ->
-                  json_error(conn, 502, "OpenAI 응답 형식이 올바르지 않습니다.")
-              end
-
-            {:ok, %Finch.Response{status: status, body: body}} ->
-              err =
-                case Jason.decode(body) do
-                  {:ok, %{"error" => %{"message" => m}}} -> m
-                  _ -> "HTTP #{status}"
+                  {:error, _} ->
+                    json_error(conn, 502, "AI 응답을 파싱할 수 없습니다.")
                 end
 
-              json_error(conn, 502, "OpenAI 요청 실패: #{err}")
+              {:ok, %{"error" => %{"message" => msg}}} ->
+                json_error(conn, 502, "OpenAI 오류: #{msg}")
 
-            {:error, reason} ->
-              Logger.error("Finch error: #{inspect(reason)}")
-              json_error(conn, 502, "AI 서버에 연결할 수 없습니다.")
-          end
+              _ ->
+                json_error(conn, 502, "OpenAI 응답 형식이 올바르지 않습니다.")
+            end
+
+          {:ok, %Finch.Response{status: status, body: body}} ->
+            err =
+              case Jason.decode(body) do
+                {:ok, %{"error" => %{"message" => m}}} -> m
+                _ -> "HTTP #{status}"
+              end
+
+            json_error(conn, 502, "OpenAI 요청 실패: #{err}")
+
+          {:error, reason} ->
+            Logger.error("Finch error: #{inspect(reason)}")
+            json_error(conn, 502, "AI 서버에 연결할 수 없습니다.")
         end
-
-      _ ->
-        json_error(conn, 400, "prompt must be a non-empty string")
+      end
+    else
+      _ -> json_error(conn, 400, "prompt must be a non-empty string")
     end
   end
 
@@ -796,11 +801,26 @@ defmodule SiteBackend.Router do
     end
   end
 
+  # Enforce email verification on a route that already called `current_user/1`
+  # successfully. Returns the user on success, or a 403 error tuple.
+  defp require_verified_email(user) do
+    if user.email_verified do
+      {:ok, user}
+    else
+      {:error, 403, "이메일 인증이 필요합니다. 받은 편지함을 확인해주세요."}
+    end
+  end
+
+  # Pipe-friendly: unwraps `{:ok, user}`, applies verification, repackages.
+  # `{:error, status, message}` is passed through unchanged.
+  defp require_verified({:ok, user}), do: require_verified_email(user)
+  defp require_verified({:error, _status, _message} = err), do: err
+
   defp current_user(conn) do
     with token when is_binary(token) <- bearer_token(conn),
          {:ok, claims} <- SiteBackend.Auth.verify_jwt(token),
          %{"type" => "access"} <- claims,
-         user_id when is_binary(user_id) <- Map.get(claims, "user_id") || Map.get(claims, :user_id),
+         user_id when is_binary(user_id) <- Map.get(claims, "user_id"),
          user when not is_nil(user) <- SiteBackend.Repo.get(SiteBackend.User, user_id) do
       {:ok, user}
     else

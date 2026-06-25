@@ -49,8 +49,16 @@ defmodule SiteBackend.Accounts do
 
   def login(conn) do
     ip = request_ip(conn)
-    %{"email" => email, "password" => password} = conn.body_params
 
+    with email when is_binary(email) <- Map.get(conn.body_params, "email"),
+         password when is_binary(password) <- Map.get(conn.body_params, "password") do
+      do_login(conn, ip, email, password)
+    else
+      _ -> {:error, 400, "email and password are required"}
+    end
+  end
+
+  defp do_login(_conn, ip, email, password) do
     case Repo.get_by(User, email: email) do
       nil ->
         SecurityAudit.log_failed_login(email, ip)
