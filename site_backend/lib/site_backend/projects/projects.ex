@@ -59,6 +59,10 @@ defmodule SiteBackend.Projects do
             # can build the notification without an extra Repo.get.
             application = Repo.preload(application, [:freelancer, :project])
 
+            # Invalidate the freelancer-applications list cache so the
+            # freelancer sees their new application immediately.
+            _ = SiteBackend.Cache.delete("freelancer:applications:#{freelancer_id}")
+
             SiteBackend.Jobs.enqueue(:send_notification, %{
               user_id: project.client_id,
               title: "새로운 지원이 들어왔습니다",

@@ -22,10 +22,15 @@ defmodule SiteBackend.Web.CacheMiddleware do
 
   import Plug.Conn
 
+  # Per-route cache policy. The triple is
+  # {max_age_seconds, scope, stale_while_revalidate_seconds}.
+  # SWR lets CDNs and browsers serve the cached response while they
+  # fetch a fresh one in the background, smoothing spikes in
+  # traffic against an upstream that just invalidated the cache.
   @cache_durations %{
-    "/projects" => {60, :public},
-    "/freelancer/services" => {30, :public},
-    "/freelancers" => {60, :public}
+    "/projects" => {60, :public, 120},
+    "/freelancer/services" => {30, :public, 60},
+    "/freelancers" => {60, :public, 120}
   }
 
   def init(opts), do: opts
@@ -48,19 +53,27 @@ defmodule SiteBackend.Web.CacheMiddleware do
         :no_cache ->
           conn
 
-        {max_age, scope} ->
-          body = response_body(conn)
-          size = byte_size(body || "")
+        {max_age, scope, swr} ->
+          # Don't cache error responses – a 4xx/5xx that comes out of
+          # a broken cache will keep poisoning the public surface until
+          # the cache TTL elapses.
+          if conn.status && conn.status >= 400 do
+            conn
+          else
+            body = response_body(conn)
+            size = byte_size(body || "")
 
-          cond do
-            is_nil(body) or size == 0 ->
-              conn
+            cond do
+              is_nil(body) or size == 0 ->
+                conn
 
-            size < 32 ->
-              put_cache_control(conn, max_age, scope)
+              size < 32 ->
+                # Skip ETags for tiny payloads – the header cost exceeds the saving.
+                put_cache_control(conn, max_age, scope, swr)
 
-            true ->
-              handle_conditional(conn, body, max_age, scope)
+              true ->
+                handle_conditional(conn, body, max_age, scope, swr)
+            end
           end
       end
     end
@@ -71,7 +84,7 @@ defmodule SiteBackend.Web.CacheMiddleware do
   defp cache_policy(%Plug.Conn{method: "GET"} = conn) do
     case Map.get(@cache_durations, conn.request_path) do
       nil -> :no_cache
-      {max_age, scope} -> {max_age, scope}
+      {max_age, scope, swr} -> {max_age, scope, swr}
     end
   end
 
@@ -85,39 +98,42 @@ defmodule SiteBackend.Web.CacheMiddleware do
     end
   end
 
-  defp put_cache_control(conn, max_age, :public) do
+  defp put_cache_control(conn, max_age, :public, swr) do
     conn
-    |> put_resp_header("cache-control", "public, max-age=#{max_age}")
+    |> put_resp_header("cache-control", "public, max-age=#{max_age}, stale-while-revalidate=#{swr}")
     |> put_resp_header("vary", "Accept, Accept-Encoding")
   end
 
-  defp put_cache_control(conn, max_age, :private) do
+  defp put_cache_control(conn, max_age, :private, swr) do
     conn
-    |> put_resp_header("cache-control", "private, max-age=#{max_age}")
+    |> put_resp_header("cache-control", "private, max-age=#{max_age}, stale-while-revalidate=#{swr}")
     |> put_resp_header("vary", "Accept, Accept-Encoding")
   end
 
-  defp handle_conditional(conn, body, max_age, scope) do
+  defp handle_conditional(conn, body, max_age, scope, swr) do
     etag = compute_etag(body)
 
     case get_req_header(conn, "if-none-match") do
       [tag] when tag == etag ->
         conn
         |> put_resp_header("etag", etag)
-        |> put_resp_header("cache-control", cache_directive(max_age, scope))
+        |> put_resp_header("cache-control", cache_directive(max_age, scope, swr))
         |> put_resp_header("vary", "Accept, Accept-Encoding")
         |> send_resp(304, "")
 
       _ ->
         conn
         |> put_resp_header("etag", etag)
-        |> put_resp_header("cache-control", cache_directive(max_age, scope))
+        |> put_resp_header("cache-control", cache_directive(max_age, scope, swr))
         |> put_resp_header("vary", "Accept, Accept-Encoding")
     end
   end
 
-  defp cache_directive(max_age, :public), do: "public, max-age=#{max_age}"
-  defp cache_directive(max_age, :private), do: "private, max-age=#{max_age}"
+  defp cache_directive(max_age, :public, swr),
+    do: "public, max-age=#{max_age}, stale-while-revalidate=#{swr}"
+
+  defp cache_directive(max_age, :private, swr),
+    do: "private, max-age=#{max_age}, stale-while-revalidate=#{swr}"
 
   # Hex-encoded SHA-256, with quotes per RFC 7232.
   defp compute_etag(body) do

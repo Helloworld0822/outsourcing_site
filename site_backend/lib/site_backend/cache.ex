@@ -24,10 +24,18 @@ defmodule SiteBackend.Cache do
 
   @default_ttl 60_000
 
+  # Bump this when the cache value's *shape* changes in a backwards-
+  # incompatible way. Old keys are still scannable but will simply
+  # miss on read (JSON decode of the new shape against the old data
+  # would fail) and be replaced naturally.
+  @namespace "crewlink:v1"
+
   @doc "Returns `{:ok, value}` on hit, `:miss` on miss, or `{:error, reason}` on failure."
   @spec read(String.t()) :: {:ok, term()} | :miss | {:error, term()}
   def read(key) when is_binary(key) do
-    case cmd(["GET", key]) do
+    namespaced = namespaced(key)
+
+    case cmd(["GET", namespaced]) do
       {:ok, nil} -> :miss
       {:ok, raw} when is_binary(raw) -> decode(raw)
       {:error, reason} -> log_error(:read, key, reason)
@@ -41,7 +49,7 @@ defmodule SiteBackend.Cache do
 
     case encode(value) do
       {:ok, payload} ->
-        cmd(["SET", key, payload, "PX", to_string(ttl)])
+        cmd(["SET", namespaced(key), payload, "PX", to_string(ttl)])
 
       {:error, reason} ->
         log_error(:encode, key, reason)
@@ -52,7 +60,7 @@ defmodule SiteBackend.Cache do
   @doc "Deletes a key. Returns the number of keys removed (0 or 1)."
   @spec delete(String.t()) :: non_neg_integer() | {:error, term()}
   def delete(key) when is_binary(key) do
-    case cmd(["DEL", key]) do
+    case cmd(["DEL", namespaced(key)]) do
       {:ok, count} -> count
       {:error, reason} -> log_error(:delete, key, reason)
     end
@@ -78,8 +86,10 @@ defmodule SiteBackend.Cache do
   @doc "Invalidates keys matching a glob pattern. Returns count of removed keys."
   @spec invalidate_pattern(String.t()) :: non_neg_integer() | {:error, term()}
   def invalidate_pattern(pattern) when is_binary(pattern) do
-    # SCAN cursor walk to avoid the blocking KEYS command.
-    scan_and_delete("0", pattern, 0)
+    # SCAN cursor walk to avoid the blocking KEYS command. We match
+    # against the namespaced prefix so we don't blow away keys written
+    # by other apps that happen to share the same Redis.
+    scan_and_delete("0", namespaced(pattern), 0)
   end
 
   defp scan_and_delete(cursor, pattern, total) do
@@ -107,6 +117,8 @@ defmodule SiteBackend.Cache do
       _ -> 0
     end
   end
+
+  defp namespaced(key), do: "#{@namespace}:#{key}"
 
   # ── Encoding ─────────────────────────────────────────────────────
 
