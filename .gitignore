@@ -1,4 +1,6 @@
 .env
+.env.local
+.env.*.local
 *.log
 node_modules/
 _deps/
@@ -26,10 +28,14 @@ deps/
 Thumbs.db
 .DS_Store
 
-# Env files
-.env.local
-.env.*.local
-
 # Build outputs
 dist/
 priv/static/uploads/
+
+# Elixir
+erl_crash.dump
+.elixir_ls/
+
+# Local DB dumps
+*.sql.gz
+*.dump

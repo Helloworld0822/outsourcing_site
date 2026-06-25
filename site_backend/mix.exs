@@ -7,7 +7,8 @@ defmodule SiteBackend.MixProject do
       version: "0.1.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      releases: releases()
     ]
   end
 
@@ -34,4 +35,20 @@ defmodule SiteBackend.MixProject do
       {:telemetry, "~> 1.0"}
     ]
   end
+
+  defp releases do
+    [
+      site_backend: [
+        # Bake in the runtime config so the release boots without
+        # config files mounted (config.exs/runtime.exs are still copied
+        # to the image for transparency).
+        steps: [:assemble, :tar],
+        include_executables_for: [:unix],
+        applications: [
+          runtime: :permanent
+        ]
+      ]
+    ]
+  end
 end
+

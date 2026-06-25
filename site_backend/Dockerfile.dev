@@ -22,6 +22,10 @@ COPY mix.exs mix.lock ./
 COPY config ./config
 RUN mix deps.get
 
+# Ensure upload dir exists with writable permissions; in dev this path
+# is bind-mounted from a named volume (see docker-compose).
+RUN mkdir -p /app/priv/static/uploads && chmod 0775 /app/priv/static/uploads
+
 EXPOSE 4000
 
 # Code is bind-mounted from the host. Entry script waits for the DB,
