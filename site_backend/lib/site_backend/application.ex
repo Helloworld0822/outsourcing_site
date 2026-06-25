@@ -26,6 +26,12 @@ defmodule SiteBackend.Application do
       SiteBackend.PubSub,
       SiteBackend.RateLimiter,
       {Finch, name: SiteBackend.Finch},
+      # Redis cache: started only when REDIS_URL is set. The Cache module
+      # fails open on a missing connection, so absence in dev is fine.
+      redix_child(),
+      # Background job dispatcher (Task.Supervisor + GenServer worker).
+      {Task.Supervisor, name: SiteBackend.Jobs.TaskSupervisor},
+      SiteBackend.Jobs.Worker,
       SiteBackend.Shutdown,
       {SiteBackend.WSListener, [port: ws_port, shutdown_timeout: shutdown_timeout]}
     ]
@@ -38,7 +44,12 @@ defmodule SiteBackend.Application do
              SiteBackend.Router,
              [],
              ip: {0, 0, 0, 0},
-             port: port
+             port: port,
+             # Keep idle TCP connections warm so clients (and CDNs) can
+             # reuse them. 75s keeps us under common intermediary
+             # defaults (ALB: 60s, nginx: 75s, Cloudflare: 100s).
+             protocol_options: [idle_timeout: 75_000, max_keepalive: 100],
+             transport_options: [num_acceptors: 8, max_connections: 16_384]
            ) do
       {:ok, sup}
     end
@@ -59,6 +70,83 @@ defmodule SiteBackend.Application do
     SiteBackend.Shutdown.await_drain_broadcast(timeout)
 
     state
+  end
+
+  # Start a Redix connection only when REDIS_URL is set. When unset the
+  # Cache module falls back to "no cache" semantics (every read is a miss,
+  # every write is a no-op) so dev still works without Redis.
+  defp redix_child do
+    case System.get_env("REDIS_URL") do
+      nil ->
+        # No-op child so the slot in the supervision tree is preserved.
+        %{
+          id: :redix_disabled,
+          start: {Task, :start_link, [fn -> :ok end]},
+          type: :worker,
+          restart: :temporary
+        }
+
+      url ->
+        opts =
+          Keyword.merge(redix_opts_from_url(url),
+            name: SiteBackend.Redix,
+            sync_connect: false,
+            exit_on_disconnection: false,
+            backoff_initial: 100,
+            backoff_max: 5_000
+          )
+
+        {Redix, opts}
+    end
+  end
+
+  # Parse redis://[:password@]host[::port][/db] into the keyword form
+  # Redix accepts. Falls back to localhost:6379 on parse failure.
+  defp redix_opts_from_url("redis://" <> rest) do
+    {auth, rest} = split_auth(rest)
+    {host_port, db} = split_db(rest)
+    {host, port} = split_host_port(host_port)
+
+    base = [host: host || "redis", port: port || 6379]
+    base = if db, do: Keyword.put(base, :database, db), else: base
+    if auth, do: Keyword.put(base, :password, auth), else: base
+  end
+
+  defp redix_opts_from_url(_), do: [host: "redis", port: 6379]
+
+  defp split_auth(rest) do
+    case String.split(rest, "@", parts: 2) do
+      [userpass, host] ->
+        password = case String.split(userpass, ":", parts: 2) do
+          [_user, pass] -> pass
+          [pass] -> pass
+        end
+        {password, host}
+
+      _ ->
+        {nil, rest}
+    end
+  end
+
+  defp split_db(rest) do
+    case String.split(rest, "/", parts: 2) do
+      [host, db] -> {host, parse_int(db)}
+      [host] -> {host, nil}
+    end
+  end
+
+  defp split_host_port(host) do
+    case String.split(host, ":", parts: 2) do
+      [h, p] -> {h, parse_int(p)}
+      [h] -> {h, nil}
+    end
+  end
+
+  defp parse_int(s) do
+    case Integer.parse(s || "") do
+      {n, _} -> n
+      :error -> nil
+    end
   end
 
   # In production-like environments, refuse to start with default/weak secrets.

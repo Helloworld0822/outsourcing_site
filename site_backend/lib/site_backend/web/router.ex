@@ -55,8 +55,20 @@ defmodule SiteBackend.Router do
   alias SiteBackend.Profiles
 
   plug :match
-  plug Plug.Parsers, parsers: [:json, :multipart], json_decoder: Jason, pass: ["*/*"]
+  plug Plug.Parsers,
+    parsers: [:json, :multipart],
+    json_decoder: Jason,
+    pass: ["*/*"],
+    # Reject abusive clients at the parsing layer instead of buffering
+    # arbitrary input into memory.
+    length: 10_485_760,
+    query_string_length: 8_192
   plug SiteBackend.CORSMiddleware
+  # Run compression before cache so the ETag is computed on the
+  # compressed bytes. This means the ETag is the same whether or not
+  # the response was compressed, since compression is content-based.
+  plug SiteBackend.Web.CompressMiddleware
+  plug SiteBackend.Web.CacheMiddleware
   plug :dispatch
 
   @login_rate_limit 5

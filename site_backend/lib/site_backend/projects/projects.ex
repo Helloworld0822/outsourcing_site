@@ -9,10 +9,14 @@ defmodule SiteBackend.Projects do
   alias SiteBackend.ProjectApplication
   alias SiteBackend.User
 
+  @cache_ttl_ms 30_000
+
   def list_projects do
-    from(p in Project, order_by: [desc: p.inserted_at])
-    |> Repo.all()
-    |> Enum.map(&project_to_map/1)
+    SiteBackend.Cache.fetch("projects:list:all", fn ->
+      from(p in Project, order_by: [desc: p.inserted_at])
+      |> Repo.all()
+      |> Enum.map(&project_to_map/1)
+    end, ttl: @cache_ttl_ms)
   end
 
   def list_client_projects(user_id) do
@@ -23,9 +27,16 @@ defmodule SiteBackend.Projects do
   end
 
   def create_project(attrs) do
-    %Project{}
-    |> Project.changeset(attrs)
-    |> Repo.insert()
+    case %Project{}
+         |> Project.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, project} ->
+        invalidate_project_caches()
+        {:ok, project}
+
+      other ->
+        other
+    end
   end
 
   def apply_to_project(project_id, freelancer_id, message) do
@@ -44,13 +55,15 @@ defmodule SiteBackend.Projects do
 
         case Repo.insert(changeset) do
           {:ok, application} ->
+            # Preload the freelancer and project in a single query so we
+            # can build the notification without an extra Repo.get.
             application = Repo.preload(application, [:freelancer, :project])
 
-            freelancer = Repo.get(User, freelancer_id)
-
-            SiteBackend.Notifications.create_notification(project.client_id, %{
+            SiteBackend.Jobs.enqueue(:send_notification, %{
+              user_id: project.client_id,
               title: "새로운 지원이 들어왔습니다",
-              message: "#{freelancer.name}님이 \"#{project.title}\" 프로젝트에 지원했습니다.",
+              message:
+                "#{application.freelancer.name}님이 \"#{application.project.title}\" 프로젝트에 지원했습니다.",
               type: "application",
               ref_id: application.id
             })
@@ -117,4 +130,9 @@ defmodule SiteBackend.Projects do
 
   defp format_datetime(nil), do: nil
   defp format_datetime(datetime), do: NaiveDateTime.to_iso8601(datetime)
+
+  defp invalidate_project_caches do
+    _ = SiteBackend.Cache.invalidate_pattern("projects:list:*")
+    :ok
+  end
 end

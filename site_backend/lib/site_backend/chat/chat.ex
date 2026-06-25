@@ -53,36 +53,39 @@ defmodule SiteBackend.Chat do
 
   def list_messages(user_id, room_id) do
     case Repo.get(ChatRoom, room_id) do
-      nil ->
-        {:error, :not_found}
-
-      %ChatRoom{client_id: ^user_id} = room ->
-        messages = fetch_messages(room)
-        {:ok, Enum.map(messages, &chat_message_to_map/1)}
-
-      %ChatRoom{freelancer_id: ^user_id} = room ->
-        messages = fetch_messages(room)
-        {:ok, Enum.map(messages, &chat_message_to_map/1)}
-
-      _ ->
-        {:error, :forbidden}
+      nil -> {:error, :not_found}
+      %ChatRoom{} = room -> authorize_and(user_id, room, fn r -> {:ok, load_messages(r)} end)
     end
   end
 
   def send_message(user_id, room_id, content) do
     case Repo.get(ChatRoom, room_id) do
-      nil ->
-        {:error, :not_found}
-
-      %ChatRoom{client_id: ^user_id} = room ->
-        do_send_message(room, user_id, content)
-
-      %ChatRoom{freelancer_id: ^user_id} = room ->
-        do_send_message(room, user_id, content)
-
-      _ ->
-        {:error, :forbidden}
+      nil -> {:error, :not_found}
+      %ChatRoom{} = room -> authorize_and(user_id, room, fn r -> do_send_message(r, user_id, content) end)
     end
+  end
+
+  defp authorize_and(user_id, room, ok_fun) do
+    if room.client_id == user_id or room.freelancer_id == user_id do
+      ok_fun.(room)
+    else
+      {:error, :forbidden}
+    end
+  end
+
+  defp load_messages(room) do
+    room.id
+    |> fetch_messages_query()
+    |> Repo.all()
+    |> Repo.preload(:sender)
+    |> Enum.map(&chat_message_to_map/1)
+  end
+
+  defp fetch_messages_query(room_id) do
+    from m in ChatMessage,
+      where: m.chat_room_id == ^room_id,
+      order_by: [asc: m.inserted_at],
+      limit: 100
   end
 
   def chat_room_to_map(room) do
@@ -108,16 +111,6 @@ defmodule SiteBackend.Chat do
       inserted_at: format_datetime(message.inserted_at),
       updated_at: format_datetime(message.updated_at)
     }
-  end
-
-  defp fetch_messages(room) do
-    from(m in ChatMessage,
-      where: m.chat_room_id == ^room.id,
-      order_by: [asc: m.inserted_at],
-      limit: 100
-    )
-    |> Repo.all()
-    |> Repo.preload(:sender)
   end
 
   defp do_send_message(room, user_id, content) do

@@ -85,41 +85,50 @@ defmodule SiteBackend.Profiles do
   프리랜서 프로필 목록을 조회합니다 (공개 프로필만).
   """
   def list_freelancer_profiles(query_params \\ %{}) do
-    base =
-      from(p in UserProfile,
-        join: u in User,
-        on: p.user_id == u.id,
-        where: u.account_type == :freelancer and p.is_public == true,
-        order_by: [desc: p.updated_at],
-        preload: [:user]
-      )
+    cache_key = "freelancers:list:#{profile_cache_key(query_params)}"
 
-    base =
-      case query_params do
-        %{"q" => q} when q != "" ->
-          term = "%#{q}%"
+    SiteBackend.Cache.fetch(cache_key, fn ->
+      base =
+        from(p in UserProfile,
+          join: u in User,
+          on: p.user_id == u.id,
+          where: u.account_type == :freelancer and p.is_public == true,
+          order_by: [desc: p.updated_at],
+          preload: [:user]
+        )
 
-          from(p in base,
-            where: ilike(p.bio, ^term) or ilike(p.location, ^term)
-          )
+      base =
+        case query_params do
+          %{"q" => q} when q != "" ->
+            term = "%#{q}%"
 
-        _ ->
-          base
-      end
+            from(p in base,
+              where: ilike(p.bio, ^term) or ilike(p.location, ^term)
+            )
 
-    base =
-      case query_params do
-        %{"skill" => skill} when skill != "" ->
-          from(p in base, where: ^skill in p.skills)
+          _ ->
+            base
+        end
 
-        _ ->
-          base
-      end
+      base =
+        case query_params do
+          %{"skill" => skill} when skill != "" ->
+            from(p in base, where: ^skill in p.skills)
 
-    base
-    |> Repo.all()
-    |> Enum.map(&profile_to_map/1)
+          _ ->
+            base
+        end
+
+      base
+      |> Repo.all()
+      |> Enum.map(&profile_to_map/1)
+    end, ttl: 60_000)
   end
+
+  defp profile_cache_key(%{"q" => q, "skill" => s}), do: "q=#{q}|s=#{s}"
+  defp profile_cache_key(%{"q" => q}), do: "q=#{q}"
+  defp profile_cache_key(%{"skill" => s}), do: "s=#{s}"
+  defp profile_cache_key(_), do: "all"
 
   # ── Private Helpers ─────────────────────────────────────────────────────
 

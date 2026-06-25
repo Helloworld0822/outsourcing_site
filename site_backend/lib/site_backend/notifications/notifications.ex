@@ -8,9 +8,15 @@ defmodule SiteBackend.Notifications do
   alias SiteBackend.Notification
 
   def list_notifications(user_id) do
-    from(n in Notification, where: n.user_id == ^user_id, order_by: [desc: n.inserted_at], limit: 50)
-    |> Repo.all()
-    |> Enum.map(&notification_to_map/1)
+    SiteBackend.Cache.fetch("notifications:list:#{user_id}", fn ->
+      from(n in Notification,
+        where: n.user_id == ^user_id,
+        order_by: [desc: n.inserted_at],
+        limit: 50
+      )
+      |> Repo.all()
+      |> Enum.map(&notification_to_map/1)
+    end, ttl: 15_000)
   end
 
   def mark_as_read(user_id, notification_id) do
@@ -19,14 +25,13 @@ defmodule SiteBackend.Notifications do
         {:error, :not_found}
 
       %Notification{user_id: ^user_id} = notification ->
-        notification
-        |> Notification.changeset(%{is_read: true})
-        |> Repo.update()
+        result =
+          notification
+          |> Notification.changeset(%{is_read: true})
+          |> Repo.update()
 
-        {:ok, :read}
-
-      _ ->
-        {:error, :forbidden}
+        _ = SiteBackend.Cache.delete("notifications:list:#{user_id}")
+        if match?({:ok, _}, result), do: {:ok, :read}, else: result
     end
   end
 
@@ -34,6 +39,7 @@ defmodule SiteBackend.Notifications do
     from(n in Notification, where: n.user_id == ^user_id and n.is_read == false)
     |> Repo.update_all(set: [is_read: true])
 
+    _ = SiteBackend.Cache.delete("notifications:list:#{user_id}")
     {:ok, :read_all}
   end
 
@@ -43,8 +49,9 @@ defmodule SiteBackend.Notifications do
         {:error, :not_found}
 
       %Notification{user_id: ^user_id} = notification ->
-        Repo.delete(notification)
-        {:ok, :deleted}
+        result = Repo.delete(notification)
+        _ = SiteBackend.Cache.delete("notifications:list:#{user_id}")
+        if match?({:ok, _}, result), do: {:ok, :deleted}, else: result
 
       _ ->
         {:error, :forbidden}
@@ -57,10 +64,15 @@ defmodule SiteBackend.Notifications do
     |> Repo.insert()
     |> case do
       {:ok, notification} ->
+        # Invalidate the per-user list cache so the next read sees
+        # the new notification immediately.
+        _ = SiteBackend.Cache.delete("notifications:list:#{user_id}")
+
         SiteBackend.PubSub.broadcast(user_id, %{
           type: "notification",
           data: notification_to_map(notification)
         })
+
         :ok
 
       {:error, _} -> :ok

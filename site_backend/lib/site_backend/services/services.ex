@@ -8,33 +8,44 @@ defmodule SiteBackend.Services do
   alias SiteBackend.FreelancerService
   alias SiteBackend.ServiceOrder
 
+  @cache_ttl_ms 30_000
+
   def list_services(query_params) do
-    base = from(s in FreelancerService, where: s.is_active == true, order_by: [desc: s.inserted_at])
+    cache_key = "services:list:#{service_cache_key(query_params)}"
 
-    base =
-      case query_params do
-        %{"category" => cat} when cat != "" ->
-          from(s in base, where: s.category == ^cat)
+    SiteBackend.Cache.fetch(cache_key, fn ->
+      base = from(s in FreelancerService, where: s.is_active == true, order_by: [desc: s.inserted_at])
 
-        _ ->
-          base
-      end
+      base =
+        case query_params do
+          %{"category" => cat} when cat != "" ->
+            from(s in base, where: s.category == ^cat)
 
-    base =
-      case query_params do
-        %{"q" => q} when q != "" ->
-          term = "%#{q}%"
-          from(s in base, where: ilike(s.title, ^term) or ilike(s.description, ^term))
+          _ ->
+            base
+        end
 
-        _ ->
-          base
-      end
+      base =
+        case query_params do
+          %{"q" => q} when q != "" ->
+            term = "%#{q}%"
+            from(s in base, where: ilike(s.title, ^term) or ilike(s.description, ^term))
 
-    base
-    |> Repo.all()
-    |> Repo.preload(:freelancer)
-    |> Enum.map(&service_to_map/1)
+          _ ->
+            base
+        end
+
+      base
+      |> Repo.all()
+      |> Repo.preload(:freelancer)
+      |> Enum.map(&service_to_map/1)
+    end, ttl: @cache_ttl_ms)
   end
+
+  defp service_cache_key(%{"category" => c, "q" => q}), do: "cat=#{c}|q=#{q}"
+  defp service_cache_key(%{"category" => c}), do: "cat=#{c}"
+  defp service_cache_key(%{"q" => q}), do: "q=#{q}"
+  defp service_cache_key(_), do: "all"
 
   def list_mine_services(user_id) do
     from(s in FreelancerService,
@@ -53,6 +64,7 @@ defmodule SiteBackend.Services do
     |> case do
       {:ok, service} ->
         service = Repo.preload(service, :freelancer)
+        invalidate_service_caches()
         {:ok, service}
 
       error ->
@@ -75,6 +87,7 @@ defmodule SiteBackend.Services do
         |> case do
           {:ok, updated} ->
             updated = Repo.preload(updated, :freelancer)
+            invalidate_service_caches()
             {:ok, updated}
 
           error ->
@@ -93,8 +106,12 @@ defmodule SiteBackend.Services do
 
       service ->
         case Repo.delete(service) do
-          {:ok, _} -> {:ok, :deleted}
-          error -> error
+          {:ok, _} ->
+            invalidate_service_caches()
+            {:ok, :deleted}
+
+          error ->
+            error
         end
     end
   end
@@ -189,6 +206,12 @@ defmodule SiteBackend.Services do
 
   defp format_datetime(nil), do: nil
   defp format_datetime(datetime), do: NaiveDateTime.to_iso8601(datetime)
+
+  defp invalidate_service_caches do
+    _ = SiteBackend.Cache.invalidate_pattern("services:list:*")
+    _ = SiteBackend.Cache.invalidate_pattern("freelancers:list:*")
+    :ok
+  end
 
   defp notify_freelancer(service, client) do
     %SiteBackend.Notification{}

@@ -32,7 +32,11 @@ defmodule SiteBackend.MixProject do
       {:joken, "~> 2.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:finch, "~> 0.18"},
-      {:telemetry, "~> 1.0"}
+      {:telemetry, "~> 1.0"},
+      # Redis cache + distributed primitives.
+      {:redix, "~> 1.5"},
+      # In-process job queue (GenStage-based).
+      {:gen_stage, "~> 1.2"}
     ]
   end
 

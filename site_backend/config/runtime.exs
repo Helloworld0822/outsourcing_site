@@ -46,6 +46,16 @@ repo_config =
 
 config :site_backend, SiteBackend.Repo, repo_config
 
+# Finch pool sizing for the AI recommendation call (and any future
+# outbound HTTP). One connection per BEAM scheduler is a sane upper
+# bound; we expose FINCH_POOL_SIZE for prod tuning.
+finch_pool_size = String.to_integer(System.get_env("FINCH_POOL_SIZE") || "16")
+
+config :site_backend, SiteBackend.Finch,
+  pools: %{
+    default: [size: finch_pool_size, count: 1]
+  }
+
 # In dev, fall back to a deterministic value so the app boots. In prod/staging
 # we require the operator to set SECRET_KEY_BASE explicitly; the application
 # start will refuse to boot with the dev default.
