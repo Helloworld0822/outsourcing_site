@@ -1,41 +1,200 @@
+# ──────────────────────────────────────────────────────────────────────
+#  Crewlink .gitignore
+#  Grouped by risk: secrets > runtime data > build artefacts > tooling.
+# ──────────────────────────────────────────────────────────────────────
+
+# ═══ 1. Secrets & credentials ═══════════════════════════════════════
+# Treat anything that may hold credentials as untracked by default.
 .env
-.env.local
-.env.*.local
-*.log
-node_modules/
+.env.*
+!.env.example
+.envrc
+*.env
+
+# TLS / SSH / signing material – never commit.
+*.pem
+*.key
+*.crt
+*.cert
+*.cer
+*.csr
+*.p12
+*.pfx
+*.p8
+id_rsa
+id_rsa.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+id_ed25519
+id_ed25519.*
+known_hosts
+authorized_keys
+*.asc
+*.gpg
+keystore.*
+keystore.p12
+google-credentials.json
+gcloud-service-key.json
+service-account*.json
+
+# Cloud-provider state and kubeconfig.
+.terraform/
+.terraform.lock.hcl
+.terraform.tfstate
+.terraform.tfstate.*
+*.tfstate
+*.tfstate.backup
+.aws/
+.gcp/
+.azure/
+.kube/
+kubeconfig
+kubeconfig.*
+
+# Generic credentials JSON/YAML.
+secrets.json
+secrets.yaml
+secrets.yml
+*-credentials.json
+credentials.json
+*.credentials
+
+# Docker / Fly / Vercel local state.
+.docker/
+fly.keys
+.netrc
+.npmrc
+.pypirc
+.vercel/
+
+# ═══ 2. Runtime data & local databases ══════════════════════════════
+# Anything that smells like a DB dump, export, or scratch file.
+*.sql
+*.sql.gz
+*.sql.bz2
+*.sql.xz
+*.dump
+*.pgdump
+*.backup
+*.bak
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+
+# SQLite / DuckDB local files.
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+
+# Local Postgres socket / data dirs mounted into containers.
+pgdata/
+postgres-data/
+
+# /docker-entrypoint-initdb.d style seeder – we use ecto migrations.
+init.sql
+initdb.d/
+
+# ═══ 3. User-uploaded content ══════════════════════════════════════
+# Anything under uploads/ is user data and must not enter git.
+priv/static/uploads/
+priv/static/uploads/**
+public/uploads/
+storage/
+media/
+
+# ═══ 4. Build artefacts & dependencies ═════════════════════════════
+# Elixir / Phoenix.
 _deps/
 _build/
 deps/
-*.swp
-.DS_Store
+.fetch
+erl_crash.dump
+*.beam
+*.ez
+.elixir_ls/
+.mix/
+cover/
+doc/_build/
+rel/
 
+# Vite / npm.
+node_modules/
+.pnp.*
+.yarn/
+dist/
+build/
+.cache/
+.next/
+.nuxt/
+.turbo/
+.parcel-cache/
+
+# Compiled TS / Vite cache.
+*.tsbuildinfo
+.vite/
+.eslintcache
+.stylelintcache
+
+# ═══ 5. Logs & process state ═══════════════════════════════════════
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ═══ 6. Tooling / editor / OS ══════════════════════════════════════
 # OpenCode
 .omo/
 
-# Playwright
+# Playwright / browser automation
 .playwright-mcp/
-
-# Screenshots
-*.png
+playwright-report/
+test-results/
+.playwright/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.swn
+*~
+.history/
 
 # OS
-Thumbs.db
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Build outputs
-dist/
-priv/static/uploads/
+# ═══ 7. Misc / misc caches ═════════════════════════════════════════
+# Coverage / CI.
+coverage/
+.nyc_output/
+*.lcov
 
-# Elixir
-erl_crash.dump
-.elixir_ls/
+# Scratch / temp / caches.
+*.tmp
+*.temp
+.cache/
+.tmp/
+tmp/
 
-# Local DB dumps
-*.sql.gz
-*.dump
+# Screenshots / local captures (avoid accidental commits).
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.mov
+captures/
+recordings/
