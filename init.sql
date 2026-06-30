@@ -156,3 +156,35 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 
 CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_user_id_index ON user_profiles (user_id);
 CREATE INDEX IF NOT EXISTS user_profiles_is_public_index ON user_profiles (is_public);
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'recruiting';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS group_chat_room_id uuid REFERENCES chat_rooms(id) ON DELETE SET NULL;
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS proposed_role text;
+ALTER TABLE project_applications ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'apply';
+
+CREATE TABLE IF NOT EXISTS project_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role text NOT NULL,
+  application_id uuid REFERENCES project_applications(id) ON DELETE SET NULL,
+  joined_at timestamp NOT NULL DEFAULT now(),
+  inserted_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS project_members_project_id_user_id_index ON project_members (project_id, user_id);
+
+ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS room_type text NOT NULL DEFAULT 'direct';
+ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES projects(id) ON DELETE SET NULL;
+ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE chat_rooms ALTER COLUMN client_id DROP NOT NULL;
+ALTER TABLE chat_rooms ALTER COLUMN freelancer_id DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS chat_room_participants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_room_id uuid NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  inserted_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_room_participants_room_user_index ON chat_room_participants (chat_room_id, user_id);

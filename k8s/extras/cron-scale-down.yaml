@@ -1,0 +1,46 @@
+# 야간/주말 scale-down (선택 적용 — k8s-cost-optimizer 기획 항목 off-hours-scale)
+# 적용: kubectl apply -f k8s/extras/cron-scale-down.yaml
+# 주의: 트래픽이 있는 환경에서는 사용하지 마세요.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-scale-down
+  namespace: crewlink
+spec:
+  schedule: "0 23 * * *"
+  timeZone: "Asia/Seoul"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: default
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - kubectl scale deployment backend -n crewlink --replicas=0
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-scale-up
+  namespace: crewlink
+spec:
+  schedule: "0 8 * * 1-5"
+  timeZone: "Asia/Seoul"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - kubectl scale deployment backend -n crewlink --replicas=1

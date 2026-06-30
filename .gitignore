@@ -56,6 +56,7 @@ kubeconfig.*
 # Generic credentials JSON/YAML.
 secrets.json
 secrets.yaml
+k8s/base/secret.yaml
 secrets.yml
 *-credentials.json
 credentials.json

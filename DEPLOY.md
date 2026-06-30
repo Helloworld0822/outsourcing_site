@@ -11,6 +11,9 @@ The repo's `docker-compose.yml` is the local-dev stack and
 `docker-compose.prod.yml` is the on-prem prod alternative; this guide
 covers the Vercel + Fly.io + Neon path.
 
+For **Kubernetes**, see [`docs/K8S.md`](./docs/K8S.md) (cost profiles +
+interactive apply via `scripts/k8s-cost-optimizer.sh`).
+
 ---
 
 ## 1. Prerequisites

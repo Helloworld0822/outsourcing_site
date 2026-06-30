@@ -2,29 +2,35 @@ import { Bot } from 'lucide-react'
 import { useState } from 'react'
 import SkillBadge from './SkillBadge'
 import MatchRateBar from './MatchRateBar'
-import type { Project } from '../../projects/types'
+import type { Project, ProjectRole } from '../../projects/types'
+import { PROJECT_ROLES } from '../../projects/types'
 import { formatPrice } from '../../api/http'
 
 interface Props {
   project: Project
   matchRate?: number
   role?: string | null
+  isOwner?: boolean
   onClose: () => void
-  onApply?: (id: string, message: string) => void
+  onApply?: (id: string, message: string, proposedRole: ProjectRole) => void
+  onOpenWorkspace?: () => void
 }
 
-export default function ProjectDetailModal({ project, matchRate, role, onClose, onApply }: Props) {
+export default function ProjectDetailModal({ project, matchRate, role, isOwner, onClose, onApply, onOpenWorkspace }: Props) {
   const [message, setMessage] = useState('')
+  const [proposedRole, setProposedRole] = useState<ProjectRole>('developer')
   const [submitting, setSubmitting] = useState(false)
 
   function handleSubmit() {
     if (!message.trim() || !onApply) return
     setSubmitting(true)
-    onApply(project.id, message.trim())
+    onApply(project.id, message.trim(), proposedRole)
     setMessage('')
     setSubmitting(false)
     onClose()
   }
+
+  const canApply = role === 'freelancer' && (project.status ?? 'recruiting') === 'recruiting'
 
   return (
     <div
@@ -36,7 +42,6 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
         className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl p-8"
         style={{ background: 'var(--color-bg-card)', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
       >
-        {/* 헤더 */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1 pr-4">
             <h2 className="text-xl font-bold mb-1" style={{ color: 'var(--color-starbucks-green)' }}>{project.title}</h2>
@@ -53,7 +58,6 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
           </button>
         </div>
 
-        {/* AI 매칭률 */}
         {matchRate != null && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
@@ -63,13 +67,11 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
           </div>
         )}
 
-        {/* 설명 */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>프로젝트 설명</h4>
           <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text)' }}>{project.description}</p>
         </div>
 
-        {/* 기술 스택 */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>요구 기술</h4>
           <div className="flex flex-wrap gap-1.5">
@@ -79,7 +81,6 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
           </div>
         </div>
 
-        {/* 예산 */}
         {project.budget && (
           <div className="mb-6 p-4 rounded-2xl" style={{ background: 'var(--color-bg-elevated)' }}>
             <h4 className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>예산</h4>
@@ -87,10 +88,32 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
           </div>
         )}
 
-        {/* 지원 폼 */}
-        {role === 'freelancer' && onApply && (
+        {isOwner && onOpenWorkspace && (
           <div className="pt-6" style={{ borderTop: '1px solid var(--color-border-light)' }}>
-            <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>지원 메시지</h4>
+            <button
+              onClick={() => { onOpenWorkspace(); onClose() }}
+              className="w-full px-5 py-3 rounded-full text-sm font-semibold text-white"
+              style={{ background: 'var(--color-primary)' }}
+            >
+              프로젝트 관리 (팀 · 지원)
+            </button>
+          </div>
+        )}
+
+        {canApply && onApply && (
+          <div className="pt-6" style={{ borderTop: '1px solid var(--color-border-light)' }}>
+            <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>지원하기</h4>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>희망 역할</label>
+            <select
+              value={proposedRole}
+              onChange={(e) => setProposedRole(e.target.value as ProjectRole)}
+              className="w-full mb-3 px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+            >
+              {PROJECT_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
             <textarea
               className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-colors resize-none mb-3"
               style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
@@ -110,7 +133,7 @@ export default function ProjectDetailModal({ project, matchRate, role, onClose, 
           </div>
         )}
 
-        {role !== 'freelancer' && (
+        {role !== 'freelancer' && !isOwner && (
           <div className="pt-6 text-center" style={{ borderTop: '1px solid var(--color-border-light)' }}>
             <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>프리랜서 계정으로 로그인하면 지원할 수 있습니다.</p>
           </div>

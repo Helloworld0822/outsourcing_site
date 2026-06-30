@@ -85,3 +85,16 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only
+
+  k8s-manifests:
+    name: Kubernetes manifests (validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate kustomize overlays
+        run: |
+          for overlay in minimal standard bundled-db; do
+            echo "==> k8s/overlays/$overlay"
+            kubectl kustomize "k8s/overlays/$overlay" | kubectl apply --dry-run=client -f -
+          done

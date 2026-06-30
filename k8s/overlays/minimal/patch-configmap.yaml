@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crewlink-env
+  namespace: crewlink
+data:
+  DB_POOL_SIZE: "5"
+  FINCH_POOL_SIZE: "2"

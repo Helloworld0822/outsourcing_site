@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crewlink
+  labels:
+    app.kubernetes.io/name: crewlink
+    app.kubernetes.io/part-of: outsourcing-service

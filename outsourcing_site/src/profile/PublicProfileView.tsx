@@ -60,9 +60,10 @@ interface PublicProfileViewProps {
   token?: string | null
   onBack?: () => void
   onContactFreelancer?: (freelancerId: string) => void
+  onInviteFreelancer?: (freelancerId: string, name: string) => void
 }
 
-export default function PublicProfileView({ userId, token, onBack, onContactFreelancer }: PublicProfileViewProps) {
+export default function PublicProfileView({ userId, token, onBack, onContactFreelancer, onInviteFreelancer }: PublicProfileViewProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -214,6 +215,15 @@ export default function PublicProfileView({ userId, token, onBack, onContactFree
                     style={{ background: 'var(--color-primary)' }}
                   >
                     <MessageCircle className="w-4 h-4 inline" /> 채팅하기
+                  </button>
+                )}
+                {isFreelancer && onInviteFreelancer && profile.user && (
+                  <button
+                    onClick={() => onInviteFreelancer(userId, profile.user!.name ?? '프리랜서')}
+                    className="px-4 py-2 rounded-full text-xs font-semibold transition-all"
+                    style={{ color: 'var(--color-primary)', border: '1px solid var(--color-primary)' }}
+                  >
+                    프로젝트에 초대
                   </button>
                 )}
               </div>

@@ -296,6 +296,35 @@ defmodule SiteBackend.Router do
     send_json(conn, %{data: projects})
   end
 
+  get "/projects/:id" do
+    case Projects.get_project(conn.path_params["id"]) do
+      {:ok, project} ->
+        send_json(conn, %{data: project})
+
+      {:error, :not_found} ->
+        json_error(conn, 404, "project not found")
+    end
+  end
+
+  get "/projects/:id/members" do
+    case authorize_roles(conn, [:client, :freelancer]) do
+      {:ok, user} ->
+        case Projects.list_project_members(conn.path_params["id"], user.id) do
+          {:ok, members} ->
+            send_json(conn, %{data: members})
+
+          {:error, :not_found} ->
+            json_error(conn, 404, "project not found")
+
+          {:error, :forbidden} ->
+            json_error(conn, 403, "forbidden")
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
   post "/projects" do
     case authorize_roles(conn, [:client]) |> require_verified() do
       {:ok, user} ->
@@ -332,8 +361,9 @@ defmodule SiteBackend.Router do
     case authorize_roles(conn, [:freelancer]) |> require_verified() do
       {:ok, user} ->
         with message when is_binary(message) <- Map.get(conn.body_params, "message"),
+             proposed_role <- Map.get(conn.body_params, "proposed_role"),
              {:ok, application} <-
-               Projects.apply_to_project(conn.path_params["id"], user.id, message) do
+               Projects.apply_to_project(conn.path_params["id"], user.id, message, proposed_role) do
           send_json(conn, %{data: Projects.application_to_map(application)}, 201)
         else
           nil ->
@@ -341,6 +371,115 @@ defmodule SiteBackend.Router do
 
           {:error, :not_found} ->
             json_error(conn, 404, "project not found")
+
+          {:error, :not_recruiting} ->
+            json_error(conn, 400, "모집이 종료된 프로젝트입니다.")
+
+          {:error, changeset} ->
+            json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  patch "/projects/:id/applications/:app_id" do
+    case authorize_roles(conn, [:client]) |> require_verified() do
+      {:ok, user} ->
+        action = Map.get(conn.body_params, "action")
+        role = Map.get(conn.body_params, "role")
+
+        case Projects.review_application(
+               conn.path_params["id"],
+               user.id,
+               conn.path_params["app_id"],
+               action,
+               role
+             ) do
+          {:ok, application} ->
+            send_json(conn, %{data: Projects.application_to_map(application)})
+
+          {:error, :not_found} ->
+            json_error(conn, 404, "not found")
+
+          {:error, :forbidden} ->
+            json_error(conn, 403, "forbidden")
+
+          {:error, :already_reviewed} ->
+            json_error(conn, 400, "이미 처리된 지원입니다.")
+
+          {:error, :invalid_action} ->
+            json_error(conn, 400, "action must be accept or reject")
+
+          {:error, changeset} ->
+            json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  post "/projects/:id/invitations" do
+    case authorize_roles(conn, [:client]) |> require_verified() do
+      {:ok, user} ->
+        with freelancer_id when is_binary(freelancer_id) <- Map.get(conn.body_params, "freelancer_id"),
+             message when is_binary(message) <- Map.get(conn.body_params, "message"),
+             proposed_role <- Map.get(conn.body_params, "proposed_role"),
+             {:ok, application} <-
+               Projects.invite_freelancer(
+                 conn.path_params["id"],
+                 user.id,
+                 freelancer_id,
+                 message,
+                 proposed_role
+               ) do
+          send_json(conn, %{data: Projects.application_to_map(application)}, 201)
+        else
+          nil ->
+            json_error(conn, 400, "freelancer_id and message are required")
+
+          {:error, :not_found} ->
+            json_error(conn, 404, "not found")
+
+          {:error, :forbidden} ->
+            json_error(conn, 403, "forbidden")
+
+          {:error, :not_recruiting} ->
+            json_error(conn, 400, "모집이 종료된 프로젝트입니다.")
+
+          {:error, changeset} ->
+            json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
+        end
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  patch "/projects/:id/invitations/:app_id/respond" do
+    case authorize_roles(conn, [:freelancer]) |> require_verified() do
+      {:ok, user} ->
+        action = Map.get(conn.body_params, "action")
+
+        case Projects.respond_to_invitation(
+               conn.path_params["id"],
+               user.id,
+               conn.path_params["app_id"],
+               action
+             ) do
+          {:ok, application} ->
+            send_json(conn, %{data: Projects.application_to_map(application)})
+
+          {:error, :not_found} ->
+            json_error(conn, 404, "not found")
+
+          {:error, :already_reviewed} ->
+            json_error(conn, 400, "이미 처리된 초대입니다.")
+
+          {:error, :invalid_action} ->
+            json_error(conn, 400, "action must be accept or reject")
 
           {:error, changeset} ->
             json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
@@ -356,6 +495,17 @@ defmodule SiteBackend.Router do
       {:ok, user} ->
         applications = Projects.list_freelancer_applications(user.id)
         send_json(conn, %{data: applications})
+
+      {:error, status, message} ->
+        json_error(conn, status, message)
+    end
+  end
+
+  get "/freelancer/invitations" do
+    case authorize_roles(conn, [:freelancer]) do
+      {:ok, user} ->
+        invitations = Projects.list_freelancer_invitations(user.id)
+        send_json(conn, %{data: invitations})
 
       {:error, status, message} ->
         json_error(conn, status, message)
@@ -552,18 +702,28 @@ defmodule SiteBackend.Router do
   post "/chat/rooms" do
     case current_user(conn) |> require_verified() do
       {:ok, user} ->
-        with freelancer_id when is_binary(freelancer_id) <-
-               Map.get(conn.body_params, "freelancer_id"),
-             service_order_id <- Map.get(conn.body_params, "service_order_id"),
-             {:ok, room} <-
-               Chat.get_or_create_room(user.id, freelancer_id, service_order_id) do
-          send_json(conn, %{data: room})
-        else
-          nil ->
-            json_error(conn, 400, "freelancer_id is required")
+        cond do
+          project_id = Map.get(conn.body_params, "project_id") ->
+            case Chat.get_project_group_room(project_id, user.id) do
+              {:ok, room} -> send_json(conn, %{data: room})
+              {:error, :not_found} -> json_error(conn, 404, "group chat not found")
+              {:error, :forbidden} -> json_error(conn, 403, "forbidden")
+            end
 
-          {:error, changeset} ->
-            json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
+          true ->
+            with freelancer_id when is_binary(freelancer_id) <-
+                   Map.get(conn.body_params, "freelancer_id"),
+                 service_order_id <- Map.get(conn.body_params, "service_order_id"),
+                 {:ok, room} <-
+                   Chat.get_or_create_room(user.id, freelancer_id, service_order_id) do
+              send_json(conn, %{data: room})
+            else
+              nil ->
+                json_error(conn, 400, "freelancer_id or project_id is required")
+
+              {:error, changeset} ->
+                json_error(conn, 400, SiteBackend.ErrorMessages.translate_changeset_errors(changeset))
+            end
         end
 
       {:error, status, message} ->

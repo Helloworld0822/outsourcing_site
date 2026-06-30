@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Folder, FileText, Globe, Users, Inbox } from 'lucide-react'
 
 import './index.css'
@@ -11,7 +11,7 @@ import type { FreelancerService } from './services/types'
 import FreelancerServiceList from './services/FreelancerServiceList'
 import ServiceOrderDialog from './services/ServiceOrderDialog'
 import NotificationBell from './notifications/NotificationBell'
-import ChatWidget from './chat/ChatWidget'
+import ChatWidget, { type ChatWidgetHandle } from './chat/ChatWidget'
 import VerifyEmail from './auth/VerifyEmail'
 import { API_BASE } from './api/apiBase'
 import ProfilePage from './profile/ProfilePage'
@@ -26,9 +26,19 @@ import CategorySection from './components/sections/CategorySection'
 import AiRecommendedProjects from './components/sections/AiRecommendedProjects'
 import ProjectCard from './components/ui/ProjectCard'
 import ProjectDetailModal from './components/ui/ProjectDetailModal'
+import ProjectWorkspace from './components/ui/ProjectWorkspace'
+import InviteFreelancerDialog from './components/ui/InviteFreelancerDialog'
 import SkeletonCard from './components/ui/SkeletonCard'
-import type { Project, Application, ProjectForm } from './projects/types'
-import { splitSkills } from './projects/types'
+import type { Project, Application, ProjectForm, ProjectRole } from './projects/types'
+import { splitSkills, APPLICATION_STATUS_LABELS, roleLabel } from './projects/types'
+import {
+  fetchProject,
+  reviewApplication,
+  inviteFreelancer,
+  respondToInvitation,
+  applyToProjectApi,
+  fetchFreelancerInvitations,
+} from './projects/api'
 
 const DUMMY_PROJECTS: Project[] = [
   {
@@ -115,6 +125,9 @@ export default function App() {
   const [selectedFreelancerId, setSelectedFreelancerId] = useState<string | null>(null)
   const [orderTarget, setOrderTarget] = useState<FreelancerService | null>(null)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [workspaceProject, setWorkspaceProject] = useState<Project | null>(null)
+  const [inviteTarget, setInviteTarget] = useState<{ id: string; name: string } | null>(null)
+  const chatWidgetRef = useRef<ChatWidgetHandle>(null)
   const [session, setSession] = useState<Session | null>(() => {
     const token = getStoredToken()
     const refresh_token = getStoredRefreshToken()
@@ -145,6 +158,7 @@ export default function App() {
   const [publicProjects, setPublicProjects] = useState<Project[]>([])
   const [clientProjects, setClientProjects] = useState<Project[]>([])
   const [freelancerApplications, setFreelancerApplications] = useState<Application[]>([])
+  const [freelancerInvitations, setFreelancerInvitations] = useState<Application[]>([])
   const [projectForm, setProjectForm] = useState<ProjectForm>({ title: '', description: '', skills: '', budget: '' })
   const [applicationDrafts, setApplicationDrafts] = useState<Record<string, string>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -254,18 +268,30 @@ export default function App() {
     finally { setLoadingPrivate(false) }
   }, [apiRequest])
 
+  const loadFreelancerInvitations = useCallback(async () => {
+    try {
+      const data = await fetchFreelancerInvitations(apiRequest)
+      setFreelancerInvitations(data)
+    } catch {
+      setFreelancerInvitations([])
+    }
+  }, [apiRequest])
+
   const loadFreelancerApplications = useCallback(async () => {
     setLoadingPrivate(true)
-    try { const body = await apiRequest<{ data: Application[] }>('/api/freelancer/applications', {}, true); setFreelancerApplications(body.data) }
-    catch (error) { setStatusMessage(error instanceof Error ? error.message : '지원 내역을 불러오지 못했습니다.') }
+    try {
+      const body = await apiRequest<{ data: Application[] }>('/api/freelancer/applications', {}, true)
+      setFreelancerApplications(body.data)
+      await loadFreelancerInvitations()
+    } catch (error) { setStatusMessage(error instanceof Error ? error.message : '지원 내역을 불러오지 못했습니다.') }
     finally { setLoadingPrivate(false) }
-  }, [apiRequest])
+  }, [apiRequest, loadFreelancerInvitations])
 
   useEffect(() => { loadPublicProjects() }, [loadPublicProjects])
 
   useEffect(() => {
-    if (!session) { setClientProjects([]); setFreelancerApplications([]); return }
-    if (session.user.account_type === 'client') { loadClientProjects(); setFreelancerApplications([]); return }
+    if (!session) { setClientProjects([]); setFreelancerApplications([]); setFreelancerInvitations([]); return }
+    if (session.user.account_type === 'client') { loadClientProjects(); setFreelancerApplications([]); setFreelancerInvitations([]); return }
     if (session.user.account_type === 'freelancer') { loadFreelancerApplications(); setClientProjects([]) }
   }, [session, loadClientProjects, loadFreelancerApplications])
 
@@ -289,14 +315,66 @@ export default function App() {
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : '프로젝트 생성에 실패했습니다.') }
   }
 
-  async function applyToProject(projectId: string, message?: string) {
+  async function applyToProject(projectId: string, message?: string, proposedRole?: ProjectRole) {
     if (!session || role !== 'freelancer') return
     const applyMessage = message || applicationDrafts[projectId]?.trim()
     if (!applyMessage) { setStatusMessage('지원 메시지를 입력해주세요.'); return }
     try {
-      const body = await apiRequest<{ data: Application }>(`/api/projects/${projectId}/applications`, { method: 'POST', body: JSON.stringify({ message: applyMessage }) }, true)
-      setFreelancerApplications((prev) => [body.data, ...prev]); setApplicationDrafts((prev) => ({ ...prev, [projectId]: '' })); setStatusMessage('프로젝트에 지원했습니다.'); setSelectedProject(null)
+      const data = await applyToProjectApi(apiRequest, projectId, applyMessage, proposedRole ?? 'developer')
+      setFreelancerApplications((prev) => [data, ...prev])
+      setApplicationDrafts((prev) => ({ ...prev, [projectId]: '' }))
+      setStatusMessage('프로젝트에 지원했습니다.')
+      setSelectedProject(null)
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : '지원에 실패했습니다.') }
+  }
+
+  async function openClientWorkspace(project: Project) {
+    try {
+      const detail = await fetchProject(apiRequest, project.id)
+      setWorkspaceProject(detail)
+    } catch {
+      setWorkspaceProject(project)
+    }
+  }
+
+  async function refreshWorkspace() {
+    if (!workspaceProject) return
+    try {
+      const detail = await fetchProject(apiRequest, workspaceProject.id)
+      setWorkspaceProject(detail)
+      loadClientProjects()
+    } catch { /* silent */ }
+  }
+
+  async function handleReviewApplication(appId: string, action: 'accept' | 'reject', role?: string) {
+    if (!workspaceProject) return
+    await reviewApplication(apiRequest, workspaceProject.id, appId, action, role)
+    setStatusMessage(action === 'accept' ? '지원을 수락했습니다. 팀 채팅방이 생성되었습니다.' : '지원을 거절했습니다.')
+    await refreshWorkspace()
+  }
+
+  async function handleRespondInvitation(appId: string, action: 'accept' | 'reject') {
+    if (!workspaceProject) return
+    await respondToInvitation(apiRequest, workspaceProject.id, appId, action)
+    setStatusMessage(action === 'accept' ? '초대를 수락했습니다.' : '초대를 거절했습니다.')
+    await refreshWorkspace()
+    loadFreelancerInvitations()
+  }
+
+  async function handleInviteFreelancer(projectId: string, message: string, role: ProjectRole) {
+    if (!inviteTarget) return
+    await inviteFreelancer(apiRequest, projectId, inviteTarget.id, message, role)
+    setStatusMessage(`${inviteTarget.name}님에게 초대를 보냈습니다.`)
+    setInviteTarget(null)
+    loadClientProjects()
+  }
+
+  function handleOpenTeamChat(projectId: string) {
+    chatWidgetRef.current?.openProjectGroupChat(projectId)
+  }
+
+  function handleOpenDirectChat(freelancerId: string) {
+    chatWidgetRef.current?.openDirectChat(freelancerId)
   }
 
   const isOnSignupPage = currentPath === '/signup' && !isLoggedIn
@@ -379,7 +457,63 @@ export default function App() {
                       <div className="mb-6">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text)' }}><Folder className="w-5 h-5" /> 내 프로젝트</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {clientProjects.map((p) => <ProjectCard key={p.id} project={p} role={role} onClick={() => setSelectedProject(p)} />)}
+                          {clientProjects.map((p) => (
+                            <ProjectCard
+                              key={p.id}
+                              project={p}
+                              role={role}
+                              onClick={() => openClientWorkspace(p)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {role === 'freelancer' && freelancerInvitations.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text)' }}>받은 초대</h3>
+                        <div className="space-y-3">
+                          {freelancerInvitations.filter((i) => i.status === 'pending').map((inv) => (
+                            <div key={inv.id} className="p-4 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border-light)' }}>
+                              <div className="flex justify-between items-start">
+                                <span className="font-semibold" style={{ color: 'var(--color-text)' }}>{inv.project?.title ?? '프로젝트'}</span>
+                                <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+                                  {roleLabel(inv.proposed_role)}
+                                </span>
+                              </div>
+                              <p className="text-sm mt-2" style={{ color: 'var(--color-text-secondary)' }}>{inv.message}</p>
+                              <div className="flex gap-2 mt-3">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await respondToInvitation(apiRequest, inv.project_id, inv.id, 'accept')
+                                      setStatusMessage('초대를 수락했습니다. 팀 채팅방에 참여하세요.')
+                                      loadFreelancerInvitations()
+                                      loadFreelancerApplications()
+                                      chatWidgetRef.current?.openProjectGroupChat(inv.project_id)
+                                    } catch (e) { setStatusMessage(e instanceof Error ? e.message : '처리 실패') }
+                                  }}
+                                  className="flex-1 px-4 py-2 rounded-full text-sm font-semibold text-white"
+                                  style={{ background: 'var(--color-primary)' }}
+                                >
+                                  수락
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await respondToInvitation(apiRequest, inv.project_id, inv.id, 'reject')
+                                      setStatusMessage('초대를 거절했습니다.')
+                                      loadFreelancerInvitations()
+                                    } catch (e) { setStatusMessage(e instanceof Error ? e.message : '처리 실패') }
+                                  }}
+                                  className="flex-1 px-4 py-2 rounded-full text-sm font-semibold"
+                                  style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
+                                >
+                                  거절
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -388,22 +522,28 @@ export default function App() {
                       <div className="mb-6">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text)' }}><FileText className="w-5 h-5" /> 내 수주 현황</h3>
                         <div className="space-y-3">
-                          {freelancerApplications.map((app) => {
-                            const statusLabel: Record<string, string> = { pending: '검토 중', accepted: '수주 확정', rejected: '미선정' }
-                            return (
-                              <div key={app.id} className="p-4 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border-light)' }}>
-                                <div className="flex justify-between items-start">
-                                  <span className="font-semibold" style={{ color: 'var(--color-text)' }}>{app.project?.title ?? '프로젝트'}</span>
-                                  <span className="px-3 py-1 rounded-full text-xs font-medium" style={{
-                                    background: app.status === 'accepted' ? 'var(--color-success-light)' : app.status === 'rejected' ? 'var(--color-error-light)' : 'var(--color-warning-light)',
-                                    color: app.status === 'accepted' ? 'var(--color-success)' : app.status === 'rejected' ? 'var(--color-error)' : 'var(--color-warning)',
-                                  }}>{statusLabel[app.status] ?? app.status}</span>
-                                </div>
-                                <p className="text-sm mt-2" style={{ color: 'var(--color-text-secondary)' }}>{app.message}</p>
-                                {app.inserted_at && <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>{new Date(app.inserted_at).toLocaleDateString('ko-KR')}</p>}
+                          {freelancerApplications.map((app) => (
+                            <div key={app.id} className="p-4 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border-light)' }}>
+                              <div className="flex justify-between items-start">
+                                <span className="font-semibold" style={{ color: 'var(--color-text)' }}>{app.project?.title ?? '프로젝트'}</span>
+                                <span className="px-3 py-1 rounded-full text-xs font-medium" style={{
+                                  background: app.status === 'accepted' ? 'var(--color-success-light)' : app.status === 'rejected' ? 'var(--color-error-light)' : 'var(--color-warning-light)',
+                                  color: app.status === 'accepted' ? 'var(--color-success)' : app.status === 'rejected' ? 'var(--color-error)' : 'var(--color-warning)',
+                                }}>{APPLICATION_STATUS_LABELS[app.status] ?? app.status}</span>
                               </div>
-                            )
-                          })}
+                              <p className="text-sm mt-2" style={{ color: 'var(--color-text-secondary)' }}>{app.message}</p>
+                              {app.status === 'accepted' && (
+                                <button
+                                  onClick={() => chatWidgetRef.current?.openProjectGroupChat(app.project_id)}
+                                  className="mt-3 px-4 py-2 rounded-full text-xs font-semibold text-white"
+                                  style={{ background: 'var(--color-primary)' }}
+                                >
+                                  팀 채팅 열기
+                                </button>
+                              )}
+                              {app.inserted_at && <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>{new Date(app.inserted_at).toLocaleDateString('ko-KR')}</p>}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -458,7 +598,16 @@ export default function App() {
                   <p style={{ color: 'var(--color-text-white-soft)' }}>원하는 기술을 보유한 프리랜서를 찾아 바로 연락해보세요.</p>
                 </div>
                 {selectedFreelancerId ? (
-                  <PublicProfileView userId={selectedFreelancerId} token={session?.token ?? null} onBack={() => setSelectedFreelancerId(null)} onContactFreelancer={(_id) => { if (!session) { setShowLogin(true); return }; setStatusMessage('프리랜서에게 채팅을 요청했습니다.') }} />
+                  <PublicProfileView
+                    userId={selectedFreelancerId}
+                    token={session?.token ?? null}
+                    onBack={() => setSelectedFreelancerId(null)}
+                    onContactFreelancer={(id) => {
+                      if (!session) { setShowLogin(true); return }
+                      chatWidgetRef.current?.openDirectChat(id)
+                    }}
+                    onInviteFreelancer={role === 'client' && session ? (id, name) => setInviteTarget({ id, name }) : undefined}
+                  />
                 ) : (
                   <FreelancerList token={session?.token ?? null} onSelectFreelancer={(id) => setSelectedFreelancerId(id)} />
                 )}
@@ -481,8 +630,32 @@ export default function App() {
               <ProjectDetailModal
                 project={selectedProject}
                 role={role}
+                isOwner={role === 'client' && selectedProject.client_id === session?.user.id}
                 onClose={() => setSelectedProject(null)}
-                onApply={(id, msg) => applyToProject(id, msg)}
+                onApply={(id, msg, roleVal) => applyToProject(id, msg, roleVal)}
+                onOpenWorkspace={() => openClientWorkspace(selectedProject)}
+              />
+            )}
+
+            {workspaceProject && session && (
+              <ProjectWorkspace
+                project={workspaceProject}
+                isOwner={role === 'client' && workspaceProject.client_id === session.user.id}
+                onClose={() => setWorkspaceProject(null)}
+                onRefresh={refreshWorkspace}
+                onReviewApplication={handleReviewApplication}
+                onRespondInvitation={role === 'freelancer' ? handleRespondInvitation : undefined}
+                onOpenTeamChat={handleOpenTeamChat}
+                onOpenDirectChat={handleOpenDirectChat}
+              />
+            )}
+
+            {inviteTarget && role === 'client' && (
+              <InviteFreelancerDialog
+                projects={clientProjects}
+                freelancerName={inviteTarget.name}
+                onClose={() => setInviteTarget(null)}
+                onInvite={handleInviteFreelancer}
               />
             )}
           </main>
@@ -490,7 +663,7 @@ export default function App() {
           <Footer />
 
           {session && (
-            <ChatWidget token={session.token} refreshToken={session.refresh_token} userId={session.user.id} userRole={session.user.account_type} />
+            <ChatWidget ref={chatWidgetRef} token={session.token} refreshToken={session.refresh_token} userId={session.user.id} userRole={session.user.account_type} />
           )}
 
           {verifyEmailToken && (

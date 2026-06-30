@@ -1,15 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X } from 'lucide-react'
+import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
+import { MessageCircle, Users, X } from 'lucide-react'
 import { Button, TextInput } from '@primer/react'
 import { API_BASE } from '../api/apiBase'
 import { readJsonResponse } from '../api/http'
 
+type ChatParticipant = {
+  user_id: string
+  user: { id: string; name: string; email: string } | null
+}
+
 type ChatRoom = {
   id: string
-  client_id: string
-  freelancer_id: string
+  room_type: string
+  name: string | null
+  project_id: string | null
+  client_id: string | null
+  freelancer_id: string | null
   client: { id: string; name: string; email: string } | null
   freelancer: { id: string; name: string; email: string } | null
+  participants: ChatParticipant[]
   inserted_at: string | null
   updated_at: string | null
 }
@@ -23,6 +32,12 @@ type ChatMessage = {
   inserted_at: string | null
 }
 
+export type ChatWidgetHandle = {
+  openRoom: (roomId: string) => void
+  openDirectChat: (freelancerId: string) => Promise<void>
+  openProjectGroupChat: (projectId: string) => Promise<void>
+}
+
 type Props = {
   token: string
   refreshToken: string
@@ -30,7 +45,10 @@ type Props = {
   userRole: string
 }
 
-export default function ChatWidget({ token, refreshToken, userId, userRole }: Props) {
+const ChatWidget = forwardRef<ChatWidgetHandle, Props>(function ChatWidget(
+  { token, refreshToken, userId, userRole },
+  ref,
+) {
   const [isOpen, setIsOpen] = useState(false)
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null)
@@ -48,27 +66,80 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
     activeRoomRef.current = activeRoom
   }, [token, refreshToken, activeRoom])
 
+  async function loadRooms() {
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/rooms`, {
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      })
+      const body = await readJsonResponse<{ data: ChatRoom[] }>(res)
+      if (res.ok && body?.data) {
+        setRooms(body.data)
+        return body.data
+      }
+    } catch { /* silent */ }
+    return []
+  }
+
+  async function openRoomById(roomId: string) {
+    const list = rooms.length ? rooms : await loadRooms()
+    const room = list.find((r) => r.id === roomId)
+    if (room) {
+      setIsOpen(true)
+      setActiveRoom(room)
+    }
+  }
+
+  async function openDirectChat(freelancerId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+        body: JSON.stringify({ freelancer_id: freelancerId }),
+      })
+      const body = await readJsonResponse<{ data: ChatRoom }>(res)
+      if (res.ok && body?.data) {
+        setIsOpen(true)
+        setActiveRoom(body.data)
+        await loadRooms()
+      }
+    } catch { /* silent */ }
+  }
+
+  async function openProjectGroupChat(projectId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+        body: JSON.stringify({ project_id: projectId }),
+      })
+      const body = await readJsonResponse<{ data: ChatRoom }>(res)
+      if (res.ok && body?.data) {
+        setIsOpen(true)
+        setActiveRoom(body.data)
+        await loadRooms()
+      }
+    } catch { /* silent */ }
+  }
+
+  useImperativeHandle(ref, () => ({
+    openRoom: (roomId: string) => { void openRoomById(roomId) },
+    openDirectChat,
+    openProjectGroupChat,
+  }))
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   useEffect(() => {
     if (!isOpen) return
-    const ctrl = new AbortController()
-
-    async function load() {
-      try {
-        const res = await fetch(`${API_BASE}/api/chat/rooms`, {
-          headers: { Authorization: `Bearer ${tokenRef.current}` },
-          signal: ctrl.signal,
-        })
-        const body = await readJsonResponse<{ data: ChatRoom[] }>(res)
-        if (res.ok && body?.data) setRooms(body.data)
-      } catch { /* silent */ }
-    }
-
-    load()
-    return () => ctrl.abort()
+    void loadRooms()
   }, [isOpen])
 
   useEffect(() => {
@@ -104,14 +175,7 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
           if (activeRoomRef.current && msg.data.chat_room_id === activeRoomRef.current.id) {
             setMessages((prev) => [...prev, msg.data])
           }
-          const ctrl = new AbortController()
-          fetch(`${API_BASE}/api/chat/rooms`, {
-            headers: { Authorization: `Bearer ${tokenRef.current}` },
-            signal: ctrl.signal,
-          })
-            .then((r) => readJsonResponse<{ data: ChatRoom[] }>(r))
-            .then((body) => { if (body?.data) setRooms(body.data) })
-            .catch(() => {})
+          void loadRooms()
         }
       } catch { /* silent */ }
     }
@@ -140,9 +204,23 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
     }
   }
 
-  function getOtherUser(room: ChatRoom) {
-    return userRole === 'client' ? room.freelancer : room.client
+  function getRoomTitle(room: ChatRoom) {
+    if (room.room_type === 'group') return room.name || '팀 채팅'
+    const other = userRole === 'client' ? room.freelancer : room.client
+    return other?.name || '알 수 없음'
   }
+
+  function getRoomPreview(room: ChatRoom) {
+    if (room.room_type === 'group') {
+      const count = room.participants?.length ?? 0
+      return `${count}명 참여 중`
+    }
+    return '1:1 채팅'
+  }
+
+  const directRooms = rooms.filter((r) => r.room_type !== 'group')
+  const groupRooms = rooms.filter((r) => r.room_type === 'group')
+  const isGroup = activeRoom?.room_type === 'group'
 
   return (
     <>
@@ -150,13 +228,18 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
         <div className="chat-panel">
           <div className="chat-header">
             <button className="chat-back" onClick={() => setActiveRoom(null)}>←</button>
-            <span className="chat-header-title">{getOtherUser(activeRoom)?.name || '알 수 없음'}</span>
+            <span className="chat-header-title flex items-center gap-1">
+              {isGroup && <Users className="w-4 h-4" />}
+              {getRoomTitle(activeRoom)}
+            </span>
             <button className="chat-close" onClick={() => { setIsOpen(false); setActiveRoom(null) }}>✕</button>
           </div>
           <div className="chat-messages">
             {messages.map((msg) => (
               <div key={msg.id} className={`chat-message ${msg.sender_id === userId ? 'mine' : 'theirs'}`}>
-                {msg.sender_id !== userId && <div className="chat-sender">{msg.sender?.name}</div>}
+                {(isGroup || msg.sender_id !== userId) && msg.sender?.name && (
+                  <div className="chat-sender">{msg.sender.name}</div>
+                )}
                 <div className="chat-bubble">{msg.content}</div>
                 {msg.inserted_at && (
                   <div className="chat-time">{new Date(msg.inserted_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -188,18 +271,36 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
             {rooms.length === 0 && (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>채팅방이 없습니다.</div>
             )}
-            {rooms.map((room) => {
-              const other = getOtherUser(room)
-              return (
-                <div key={room.id} className="chat-room-item" onClick={() => setActiveRoom(room)}>
-                  <div className="chat-room-avatar">{other?.name?.[0] || '?'}</div>
-                  <div className="chat-room-info">
-                    <div className="chat-room-name">{other?.name || '알 수 없음'}</div>
-                    <div className="chat-room-preview">채팅 시작하기...</div>
+            {groupRooms.length > 0 && (
+              <>
+                <div className="px-4 py-2 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>팀 채팅</div>
+                {groupRooms.map((room) => (
+                  <div key={room.id} className="chat-room-item" onClick={() => setActiveRoom(room)}>
+                    <div className="chat-room-avatar" style={{ background: 'var(--color-primary)' }}>
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="chat-room-info">
+                      <div className="chat-room-name">{getRoomTitle(room)}</div>
+                      <div className="chat-room-preview">{getRoomPreview(room)}</div>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                ))}
+              </>
+            )}
+            {directRooms.length > 0 && (
+              <>
+                <div className="px-4 py-2 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>1:1 채팅</div>
+                {directRooms.map((room) => (
+                  <div key={room.id} className="chat-room-item" onClick={() => setActiveRoom(room)}>
+                    <div className="chat-room-avatar">{getRoomTitle(room)[0] || '?'}</div>
+                    <div className="chat-room-info">
+                      <div className="chat-room-name">{getRoomTitle(room)}</div>
+                      <div className="chat-room-preview">{getRoomPreview(room)}</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -209,4 +310,6 @@ export default function ChatWidget({ token, refreshToken, userId, userRole }: Pr
       </button>
     </>
   )
-}
+})
+
+export default ChatWidget

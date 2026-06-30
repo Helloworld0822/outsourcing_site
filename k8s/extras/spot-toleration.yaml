@@ -1,0 +1,18 @@
+# Spot 노드 풀 toleration 예시 (노드 풀 설정 후 backend에 patch)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: crewlink
+spec:
+  template:
+    spec:
+      tolerations:
+        - key: "cloud.google.com/gke-spot"
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+        - key: "kubernetes.azure.com/scalesetpriority"
+          operator: Equal
+          value: "spot"
+          effect: NoSchedule

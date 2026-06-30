@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-migrate
+  namespace: crewlink
+  labels:
+    app: backend-migrate
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: crewlink/backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/app/_release/bin/site_backend", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: crewlink-env
+            - secretRef:
+                name: crewlink-secrets

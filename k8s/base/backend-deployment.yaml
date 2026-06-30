@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: crewlink
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: backend
+          image: crewlink/backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/app/_release/bin/site_backend", "start"]
+          ports:
+            - name: http
+              containerPort: 4000
+            - name: ws
+              containerPort: 4001
+          envFrom:
+            - configMapRef:
+                name: crewlink-env
+            - secretRef:
+                name: crewlink-secrets
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/priv/static/uploads
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /projects
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /projects
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: backend-uploads

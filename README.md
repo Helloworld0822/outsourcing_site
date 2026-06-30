@@ -80,6 +80,21 @@ Services started:
 - **Rate limiting** at the nginx layer (auth, api, ws) and at the
   application layer (login, signup, refresh).
 
+## Deployment
+
+| Path | Doc |
+|------|-----|
+| Vercel + Fly.io + Neon | [DEPLOY.md](./DEPLOY.md) |
+| **Kubernetes** | [docs/K8S.md](./docs/K8S.md) |
+
+Kubernetes 배포 시 비용 최소화 기획을 먼저 검토하고, 실행 여부를 직접 선택할 수 있습니다:
+
+```sh
+cp k8s/base/secret.example.yaml k8s/base/secret.yaml  # 값 입력
+./scripts/k8s-cost-optimizer.sh --plan-only            # 기획만
+./scripts/k8s-cost-optimizer.sh                        # y/N 확인 후 적용
+```
+
 ## License
 
 Proprietary. © 2026 Crewlink. All rights reserved.

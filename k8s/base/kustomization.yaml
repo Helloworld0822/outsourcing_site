@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crewlink
+
+resources:
+  - namespace.yaml
+  - configmap-env.yaml
+  - backend-pvc.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - redis-deployment.yaml
+  - redis-service.yaml
+  - gateway-configmap.yaml
+  - gateway-deployment.yaml
+  - gateway-service.yaml
+  - migrate-job.yaml
+  - hpa-backend.yaml
+
+# secret.yaml and ingress.yaml are applied separately:
+#   cp k8s/base/secret.example.yaml k8s/base/secret.yaml  # fill values
+#   kubectl apply -f k8s/base/secret.yaml
+
+images:
+  - name: crewlink/backend
+    newName: crewlink/backend
+    newTag: latest
+  - name: crewlink/frontend
+    newName: crewlink/frontend
+    newTag: latest

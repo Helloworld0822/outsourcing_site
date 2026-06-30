@@ -1,0 +1,15 @@
+# 클러스터 내 Postgres 포함 (개발/POC용 — 비용↑, 프로덕션 비권장)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - postgres-statefulset.yaml
+  - postgres-service.yaml
+
+patches:
+  - path: patch-configmap.yaml
+
+replicas:
+  - name: backend
+    count: 1

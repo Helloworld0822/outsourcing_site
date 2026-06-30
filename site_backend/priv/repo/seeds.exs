@@ -9,6 +9,8 @@ alias SiteBackend.Repo
 alias SiteBackend.User
 alias SiteBackend.FreelancerService
 alias SiteBackend.UserProfile
+alias SiteBackend.Project
+alias SiteBackend.ProjectApplication
 
 # ── Freelancer Users ──────────────────────────────────────────
 
@@ -209,3 +211,51 @@ end
 
 IO.puts("Seeds inserted successfully!")
 IO.puts("Freelancers: 6, Clients: 2, Services: #{length(services)}")
+
+# ── Sample Projects ───────────────────────────────────────────
+
+client1 = Repo.get_by!(User, email: "client1@example.com")
+
+sample_project =
+  case Repo.get_by(Project, title: "모바일 앱 UI/UX + React Native 개발") do
+    nil ->
+      %Project{}
+      |> Project.changeset(%{
+        title: "모바일 앱 UI/UX + React Native 개발",
+        description: "배달 서비스 앱을 디자인부터 개발까지 진행합니다. 디자이너 1명, React Native 개발자 1명을 모집합니다.",
+        skills: ["Figma", "React Native", "TypeScript"],
+        budget: "12,000,000원",
+        client_name: client1.name,
+        client_id: client1.id,
+        status: :recruiting
+      })
+      |> Repo.insert!()
+
+    existing ->
+      existing
+  end
+
+for {freelancer, message, role, source, status} <- [
+      {freelancer3, "UI/UX 디자인 4년 경력입니다. Figma 기반 디자인 시스템 구축 경험이 있습니다.", "designer", :apply, :pending},
+      {freelancer1, "React Native로 배달앱을 2건 개발한 경험이 있습니다.", "developer", :apply, :pending},
+      {freelancer6, "풀스택으로 MVP 개발도 가능합니다.", "developer", :invite, :pending}
+    ] do
+  case Repo.get_by(ProjectApplication, project_id: sample_project.id, freelancer_id: freelancer.id) do
+    nil ->
+      %ProjectApplication{}
+      |> ProjectApplication.changeset(%{
+        project_id: sample_project.id,
+        freelancer_id: freelancer.id,
+        message: message,
+        proposed_role: role,
+        source: source,
+        status: status
+      })
+      |> Repo.insert!()
+
+    _ ->
+      :skip
+  end
+end
+
+IO.puts("Sample project: #{sample_project.title} (#{sample_project.id})")
